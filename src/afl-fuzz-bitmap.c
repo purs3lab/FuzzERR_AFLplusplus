@@ -454,6 +454,7 @@ void write_crash_readme(afl_state_t *afl) {
 
 u8 __attribute__((hot))
 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
+    printf(">>>> save_if_interesting(): fault: %d\n", fault);
 
   if (unlikely(len == 0)) { return 0; }
 
@@ -478,6 +479,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   }
 
   if (likely(fault == afl->crash_mode)) {
+        printf(">>>> save_if_interesting > fault == afl->crash_mode\n");
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
@@ -699,6 +701,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       break;
 
     case FSRV_RUN_CRASH:
+    printf(">>>> save_if_interesting > case FSRV_RUN_CRASH:\n");
 
     keep_as_crash:
 
@@ -707,6 +710,35 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
          cases. */
 
       ++afl->total_crashes;
+
+        // NOTE: shank: we can run CrashFinder here and if the crash is
+        // occuring in library, just return 'keeping' (0)
+        //
+        // this definitely works, but we need the input mask and the input file
+        // to pass onto CrashFinder. How do we get that?
+        //
+        // required:
+        // [x] binary : afl->argv[0]
+        // [x] args if any : afl->argv[1]...
+        // [x] error mask : afl->fsrv.out_file
+        printf(">>>> afl->argv: %s\n", *afl->argv);
+        printf(">>>> afl->argv[1]: %s\n", afl->argv[1]);
+        printf(">>>> afl->argv[2]: %s\n", afl->argv[2]);
+        printf(">>>> afl->in_dir: %s\n", afl->in_dir);
+        printf(">>>> afl->infoexec: %s\n", afl->infoexec);
+        int argc = 0;
+        while(afl->argv[argc]){
+            argc++;
+        }
+        printf(">>>> argc: %d\n", argc);
+        printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
+
+        int status = system("/home/shank/code/research/FuzzERR/scripts/crash_finder.py");
+        status /= 256;
+        printf(">>>> crash_finder status: %d\n", status);
+
+        return keeping;
+        // NOTE: shank: end
 
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
@@ -823,6 +855,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
 #endif
 
+    printf(">>>> returning keeping=%d\n", keeping);
   return keeping;
 
 }

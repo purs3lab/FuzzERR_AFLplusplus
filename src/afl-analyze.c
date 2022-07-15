@@ -204,6 +204,7 @@ static void read_initial_file(void) {
    times out. */
 
 static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
+    printf(">>>> analyze_run_target()\n");
 
   afl_fsrv_write_to_testcase(&fsrv, mem, len);
   fsrv_run_result_t ret = afl_fsrv_run_target(&fsrv, exec_tmout, &stop_soon);

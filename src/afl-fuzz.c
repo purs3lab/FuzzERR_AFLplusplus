@@ -525,7 +525,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl_state_init(afl, map_size);
   afl->debug = debug;
+    printf(">>>> before afl_fsrv_init()\n");
   afl_fsrv_init(&afl->fsrv);
+    printf(">>>> after afl_fsrv_init()\n");
   if (debug) { afl->fsrv.debug = true; }
   read_afl_environment(afl, envp);
   if (afl->shm.map_size) { afl->fsrv.map_size = afl->shm.map_size; }

@@ -43,6 +43,7 @@ u64 time_spent_working = 0;
 
 fsrv_run_result_t __attribute__((hot))
 fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
+    printf(">>>> fuzz_run_target()\n");
 
 #ifdef PROFILING
   static u64      time_spent_start = 0;

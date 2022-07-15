@@ -1690,6 +1690,9 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
+    printf(">>>> compiler_mode == LLVM? -> %d\n", compiler_mode == LLVM);
+    printf(">>>> instrument_mode: %d\n", instrument_mode);
+
   if (!compiler_mode) {
 
     // lto is not a default because outside of afl-cc RANLIB and AR have to
@@ -2130,6 +2133,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   if (debug) {
+        printf(">>>> in debug...\n");
 
     DEBUGF("cd '%s';", getthecwd());
     for (i = 0; i < argc; i++)
@@ -2184,11 +2188,19 @@ int main(int argc, char **argv, char **envp) {
 
   if (passthrough) {
 
+        printf(">>>> in passthrough...\n");
     argv[0] = cc_params[0];
     execvp(cc_params[0], (char **)argv);
 
   } else {
 
+        printf(">>>> not in passthrough...\n");
+        printf(">>>> cc_params[0]: %s\n", cc_params[0]);
+        int idx = 0;
+        while(cc_params[idx] != NULL){
+            printf(">>>> cc_params[%d]: %s\n", idx, cc_params[idx]);
+            idx++;
+        }
     execvp(cc_params[0], (char **)cc_params);
 
   }

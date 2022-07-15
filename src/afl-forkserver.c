@@ -65,6 +65,10 @@ static void fsrv_exec_child(afl_forkserver_t *fsrv, char **argv) {
 
   }
 
+    printf(">>>> fsrv_exec_child()\n");
+    printf(">>>> >> fsrv->target_path: %s\n", fsrv->target_path);
+    printf(">>>> >> argv: %s\n", *argv);
+
   execv(fsrv->target_path, argv);
 
   WARNF("Execv failed in forkserver.");
@@ -1401,6 +1405,9 @@ afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len) {
 fsrv_run_result_t __attribute__((hot))
 afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
                     volatile u8 *stop_soon_p) {
+    printf(">>>> afl_fsrv_run_target()\n");
+    printf(">>>> >> fsrv->out_file: %s\n", fsrv->out_file);
+    printf(">>>> >> fsrv->target_path: %s\n", fsrv->target_path);
 
   s32 res;
   u32 exec_ms;
