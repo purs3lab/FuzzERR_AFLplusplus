@@ -715,6 +715,7 @@ void write_error_with_location(char *text, char *filename, int linenumber) {
 
 #ifdef __linux__
 static void __afl_start_snapshots(void) {
+    printf(">>>> __afl_start_snapshots()\n");
 
   static u8 tmp[4] = {0, 0, 0, 0};
   u32       status = 0;
@@ -1073,6 +1074,8 @@ static void __afl_start_forkserver(void) {
 
     /* Wait for parent by reading from the pipe. Abort if read fails. */
 
+        printf(">>>> __afl_start_forkserver(): waiting for parent by reading from pipe\n");
+
     if (already_read_first) {
 
       already_read_first = 0;
@@ -1134,6 +1137,8 @@ static void __afl_start_forkserver(void) {
 
       /* Once woken up, create a clone of our process. */
 
+            printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
+
       child_pid = fork();
       if (child_pid < 0) {
 
@@ -1169,12 +1174,16 @@ static void __afl_start_forkserver(void) {
 
     /* In parent process: write PID to pipe, then wait for child. */
 
+        printf(">>>> __afl_start_forkserver(): in parent process, informing child PID via pipe to parent\n");
+
     if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) {
 
       write_error("write to afl-fuzz");
       _exit(1);
 
     }
+
+        printf(">>>> __afl_start_forkserver(): in parent process, waiting for child...\n");
 
     if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0) {
 
@@ -1190,6 +1199,27 @@ static void __afl_start_forkserver(void) {
     if (WIFSTOPPED(status)) child_stopped = 1;
 
     /* Relay wait status to pipe, then loop back. */
+
+        // shank: start
+        printf(">>>> __afl_start_forkserver(): WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
+        if(WIFSIGNALED(status)){
+            printf(">>>> __afl_start_forkserver(): WTERMSIG(status): %d\n", WTERMSIG(status));
+            // our crashes will be terminated by some sort of signal,
+            // so this is the correct place to call crash_finder to decide if
+            // its an interesting crash or not.
+            // if error is in library, ignore it (by overwriting `status`)
+            // else send the appropriate error for crash
+            //
+            // TODO: shank:
+            // requirments for calling crash_finder:
+            // [ ] src path
+            // [ ] binary path
+            // [ ] error mask
+            // [ ] args to the binary
+        }
+
+        printf(">>>> __afl_start_forkserver(): sending child status to parent via PIPE. status:%d\n", status);
+        // shank: end
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) {
 
