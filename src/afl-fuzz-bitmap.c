@@ -722,22 +722,25 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         // [x] args if any : afl->argv[1]...
         // [x] error mask : afl->fsrv.out_file
         printf(">>>> afl->argv: %s\n", *afl->argv);
-        printf(">>>> afl->argv[1]: %s\n", afl->argv[1]);
-        printf(">>>> afl->argv[2]: %s\n", afl->argv[2]);
-        printf(">>>> afl->in_dir: %s\n", afl->in_dir);
-        printf(">>>> afl->infoexec: %s\n", afl->infoexec);
         int argc = 0;
         while(afl->argv[argc]){
             argc++;
         }
         printf(">>>> argc: %d\n", argc);
+    for(int i=0; i < argc; i++){
+        printf(">>>> afl->argv[%d]: %s\n", i, afl->argv[i]);
+
+    }
+        printf(">>>> afl->in_dir: %s\n", afl->in_dir);
+        printf(">>>> afl->infoexec: %s\n", afl->infoexec);
         printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
 
         int status = system("/home/shank/code/research/FuzzERR/scripts/crash_finder.py");
         status /= 256;
         printf(">>>> crash_finder status: %d\n", status);
 
-        return keeping;
+        // return keeping;
+
         // NOTE: shank: end
 
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
