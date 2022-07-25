@@ -953,6 +953,7 @@ static void __afl_start_snapshots(void) {
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
+    printf(">>>> __afl_start_forkserver()\n");
 
   if (__afl_already_initialized_forkserver) return;
   __afl_already_initialized_forkserver = 1;

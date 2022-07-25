@@ -24,7 +24,9 @@
  */
 
 #include "afl-fuzz.h"
+#include "debug.h"
 #include <limits.h>
+#include <string.h>
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -448,6 +450,78 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
+const char *crash_finder = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
+
+enum CrashFinderEC{
+    CrashFinderEC_IMPOSSIBLE = 0,
+    CrashFinderEC_INVALID_ARGS,
+    CrashFinderEC_SRC_PATH_NOT_PROVIDED,
+    CrashFinderEC_CRASH_IN_PROGRAM,
+    CrashFinderEC_CRASH_IN_LIBRARY
+};
+
+/// create the command line for the crash_finder.py
+/// using the infomation available in `afl`
+///
+/// NOTE: the (char *) returned by this function should be freed by the caller
+char *create_crash_finder_cmd(afl_state_t *afl){
+    // required:
+    // [x] binary : afl->argv[0]
+    // [x] args if any : afl->argv[1]...
+    // [x] error mask : afl->fsrv.out_file
+    printf(">>>> afl->argv: %s\n", *afl->argv);
+    int argc = 0;
+    while(afl->argv[argc]){
+        argc++;
+    }
+    printf(">>>> argc: %d\n", argc);
+    for(int i=0; i < argc; i++){
+        printf(">>>> afl->argv[%d]: %s\n", i, afl->argv[i]);
+
+    }
+    printf(">>>> afl->in_dir: %s\n", afl->in_dir);
+    printf(">>>> afl->infoexec: %s\n", afl->infoexec);
+    printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
+
+    // crash_finder.py --prog_path=<bin> --mask_path=<error_mask> --args=<input1>,<input2>..
+    // FUZZERR_SRC_PATH should have already been set inside environment variable
+    char *prog_bin = afl->argv[0];
+    char *error_mask = afl->fsrv.out_file;
+
+    // calculate the length of the malloced chunk for this cmd
+    size_t cmd_len = 0;
+    cmd_len += strlen(crash_finder) + 1;
+    cmd_len += strlen("--prog_path=");
+    cmd_len += strlen(prog_bin) + 1;
+    cmd_len += strlen("--mask_path=");
+    cmd_len += strlen(afl->fsrv.out_file) + 1;
+    cmd_len += strlen("--args=");
+    for (int i = 1; i < argc; i++){
+        cmd_len += strlen(afl->argv[i]) + 1;
+    }
+
+    // construct the cmd string and return
+    char *cmd = (char *)malloc(cmd_len);
+    memset(cmd, 0, cmd_len);
+    cmd = strcat(cmd, crash_finder);;
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--prog_path=");
+    cmd = strcat(cmd, prog_bin);
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--mask_path=");
+    cmd = strcat(cmd, error_mask);
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--args=");
+    for (int i = 1; i < argc; i++){
+        cmd = strcat(cmd, afl->argv[i]);
+        cmd = strcat(cmd, ",");
+    }
+
+    printf(">>>> create_crash_finder_cmd(): cmd: %s\n", cmd);
+
+    return cmd;
+}
+
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
    entry is saved, 0 otherwise. */
@@ -713,33 +787,35 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         // NOTE: shank: we can run CrashFinder here and if the crash is
         // occuring in library, just return 'keeping' (0)
-        //
-        // this definitely works, but we need the input mask and the input file
-        // to pass onto CrashFinder. How do we get that?
-        //
-        // required:
-        // [x] binary : afl->argv[0]
-        // [x] args if any : afl->argv[1]...
-        // [x] error mask : afl->fsrv.out_file
-        printf(">>>> afl->argv: %s\n", *afl->argv);
-        int argc = 0;
-        while(afl->argv[argc]){
-            argc++;
+
+        char *crash_finder_cmd = create_crash_finder_cmd(afl);
+        int status = system(crash_finder_cmd);
+        if(crash_finder_cmd){
+            free(crash_finder_cmd);
         }
-        printf(">>>> argc: %d\n", argc);
-    for(int i=0; i < argc; i++){
-        printf(">>>> afl->argv[%d]: %s\n", i, afl->argv[i]);
-
-    }
-        printf(">>>> afl->in_dir: %s\n", afl->in_dir);
-        printf(">>>> afl->infoexec: %s\n", afl->infoexec);
-        printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
-
-        int status = system("/home/shank/code/research/FuzzERR/scripts/crash_finder.py");
         status /= 256;
         printf(">>>> crash_finder status: %d\n", status);
 
-        // return keeping;
+        // from fuzzerr > crash_finder.py:
+        //
+        // Exit Codes (see class ExitCode below):
+        //     IMPOSSIBLE = 0
+        //     INVALID_ARGS = 1
+        //     SRC_PATH_NOT_PROVIDED = 2
+        //     CRASH_IN_PROGRAM = 3
+        //     CRASH_IN_LIBRARY = 4
+    //
+    //     >>>> here
+        switch(status){
+            case CrashFinderEC_IMPOSSIBLE:
+                break;
+
+            default:
+                char msg[100];
+                memset(msg, 0, 100);
+                sprintf(msg, "unknown CrashFinder exit code: %d", status);
+                WARNF("unknown CrashFinder exit code: ");
+        }
 
         // NOTE: shank: end
 
