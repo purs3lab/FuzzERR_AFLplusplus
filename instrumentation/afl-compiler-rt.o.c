@@ -1201,26 +1201,26 @@ static void __afl_start_forkserver(void) {
 
     /* Relay wait status to pipe, then loop back. */
 
-        // shank: start
-        printf(">>>> __afl_start_forkserver(): WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
-        if(WIFSIGNALED(status)){
-            printf(">>>> __afl_start_forkserver(): WTERMSIG(status): %d\n", WTERMSIG(status));
-            // our crashes will be terminated by some sort of signal,
-            // so this is the correct place to call crash_finder to decide if
-            // its an interesting crash or not.
-            // if error is in library, ignore it (by overwriting `status`)
-            // else send the appropriate error for crash
-            //
-            // TODO: shank:
-            // requirments for calling crash_finder:
-            // [ ] src path
-            // [ ] binary path
-            // [ ] error mask
-            // [ ] args to the binary
-        }
+        //// shank: start
+        //printf(">>>> __afl_start_forkserver(): WEXITSTATUS(status): %d\n", WEXITSTATUS(status));
+        //if(WIFSIGNALED(status)){
+        //    printf(">>>> __afl_start_forkserver(): WTERMSIG(status): %d\n", WTERMSIG(status));
+        //    // our crashes will be terminated by some sort of signal,
+        //    // so this is the correct place to call crash_finder to decide if
+        //    // its an interesting crash or not.
+        //    // if error is in library, ignore it (by overwriting `status`)
+        //    // else send the appropriate error for crash
+        //    //
+        //    // TODO: shank:
+        //    // requirments for calling crash_finder:
+        //    // [ ] src path
+        //    // [ ] binary path
+        //    // [ ] error mask
+        //    // [ ] args to the binary
+        //}
 
-        printf(">>>> __afl_start_forkserver(): sending child status to parent via PIPE. status:%d\n", status);
-        // shank: end
+        //printf(">>>> __afl_start_forkserver(): sending child status to parent via PIPE. status:%d\n", status);
+        //// shank: end
 
     if (write(FORKSRV_FD + 1, &status, 4) != 4) {
 
