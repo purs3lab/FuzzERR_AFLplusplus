@@ -450,8 +450,10 @@ void write_crash_readme(afl_state_t *afl) {
 
 }
 
-const char *crash_finder = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
+/// @shank
+const char *crash_finder_path = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
 
+/// @shank
 enum CrashFinderEC{
     CrashFinderEC_IMPOSSIBLE = 0,
     CrashFinderEC_INVALID_ARGS,
@@ -464,7 +466,8 @@ enum CrashFinderEC{
 /// using the infomation available in `afl`
 ///
 /// NOTE: the (char *) returned by this function should be freed by the caller
-char *create_crash_finder_cmd(afl_state_t *afl){
+/// @shank
+char *create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace){
     // required:
     // [x] binary : afl->argv[0]
     // [x] args if any : afl->argv[1]...
@@ -490,7 +493,7 @@ char *create_crash_finder_cmd(afl_state_t *afl){
 
     // calculate the length of the malloced chunk for this cmd
     size_t cmd_len = 0;
-    cmd_len += strlen(crash_finder) + 1;
+    cmd_len += strlen(crash_finder_path) + 1;
     cmd_len += strlen("--prog_path=");
     cmd_len += strlen(prog_bin) + 1;
     cmd_len += strlen("--mask_path=");
@@ -499,11 +502,14 @@ char *create_crash_finder_cmd(afl_state_t *afl){
     for (int i = 1; i < argc; i++){
         cmd_len += strlen(afl->argv[i]) + 1;
     }
+    printf(">>>> create_crash_finder_cmd(): cmd_len: %d\n", cmd_len);
 
     // construct the cmd string and return
-    char *cmd = (char *)malloc(cmd_len);
-    memset(cmd, 0, cmd_len);
-    cmd = strcat(cmd, crash_finder);;
+    char *cmd = (char *)calloc(cmd_len, sizeof(char));
+    if(cmd == NULL){
+        FATAL("unable to allocate buffer for crash_finder command");
+    }
+    cmd = strcat(cmd, crash_finder_path);;
     cmd = strcat(cmd, " ");
     cmd = strcat(cmd, "--prog_path=");
     cmd = strcat(cmd, prog_bin);
@@ -514,13 +520,78 @@ char *create_crash_finder_cmd(afl_state_t *afl){
     cmd = strcat(cmd, "--args=");
     for (int i = 1; i < argc; i++){
         cmd = strcat(cmd, afl->argv[i]);
-        cmd = strcat(cmd, ",");
+        if(i != argc-1){
+            cmd = strcat(cmd, ",");
+        }
     }
 
+    printf(">>>> create_crash_finder_cmd(): final cmd length: %d\n", strlen(cmd));
     printf(">>>> create_crash_finder_cmd(): cmd: %s\n", cmd);
 
     return cmd;
 }
+
+
+// @shank
+/// uses crash_finder to take the call on whether the error was in library or in the program
+/// returns 1 if the crash is to be saved and 0 if its to be discarded
+u8 decide_via_crash_finder(afl_state_t *afl){
+    // crash_finder without backtrace
+    char *crash_finder_cmd = create_crash_finder_cmd(afl, false);
+    int status = system(crash_finder_cmd);
+    if(crash_finder_cmd){
+        free(crash_finder_cmd);
+    }
+    status /= 256;
+    printf(">>>> crash_finder exit code status: %d\n", status);
+
+    //     take action, based on the exit code
+    //
+    // fuzzerr > crash_finder.py
+    // Exit Codes (see class ExitCode below):
+    //     IMPOSSIBLE = 0 -> log warning about unexpected exit code, keep input
+    //     INVALID_ARGS = 1 -> log warning about invalid args, keep input
+    //     SRC_PATH_NOT_PROVIDED = 2 -> log warning about invalid args, keep input
+    //     CRASH_IN_PROGRAM = 3  -> log info about crash in program, keep input
+    //     CRASH_IN_LIBRARY = 4 -> phase II
+    //     default -> log warning about unknown exit code, keep input
+    switch(status){
+        case CrashFinderEC_IMPOSSIBLE:
+            WARNF("CrashFinder (exit code: %d) - unexpected exit", status);
+            return 1;
+
+        case CrashFinderEC_INVALID_ARGS:
+            WARNF("CrashFinder (exit code: %d) - invalid args", status);
+            return 1;
+
+        case CrashFinderEC_SRC_PATH_NOT_PROVIDED:
+            WARNF("CrashFinder (exit code: %d) - SRC_PATH not provided", status);
+            return 1;
+
+        case CrashFinderEC_CRASH_IN_PROGRAM:
+            SAYF("CrashFinder (exit code: %d) - crash in program", status);
+            return 1;
+
+        case CrashFinderEC_CRASH_IN_LIBRARY:
+            SAYF("CrashFinder (exit code: %d) - crash in library", status);
+            // TODO: shank: implement
+            // since the crash was in library, do the following:
+            // - run with backtrace enabled and check the return code
+            // - if crash is in program, handle it as the case above
+            // - if crash is again in library, invoke crash minimizer to minimize the error_mask
+            // and then run crash_finder with backtrace_enabled and with the minimized mask and
+            // take the final call based on the result
+            break;
+
+        default:
+            WARNF("unknown CrashFinder exit code: %d", status);
+            return 1;
+    }
+
+    // TODO: shank: this should be (eventually) redundant
+    return 1;
+}
+
 
 /* Check if the result of an execve() during routine fuzzing is interesting,
    save or queue the input test case for further analysis if so. Returns 1 if
@@ -785,37 +856,10 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
       ++afl->total_crashes;
 
+        // @shank
         // NOTE: shank: we can run CrashFinder here and if the crash is
         // occuring in library, just return 'keeping' (0)
-
-        char *crash_finder_cmd = create_crash_finder_cmd(afl);
-        int status = system(crash_finder_cmd);
-        if(crash_finder_cmd){
-            free(crash_finder_cmd);
-        }
-        status /= 256;
-        printf(">>>> crash_finder status: %d\n", status);
-
-        // from fuzzerr > crash_finder.py:
-        //
-        // Exit Codes (see class ExitCode below):
-        //     IMPOSSIBLE = 0
-        //     INVALID_ARGS = 1
-        //     SRC_PATH_NOT_PROVIDED = 2
-        //     CRASH_IN_PROGRAM = 3
-        //     CRASH_IN_LIBRARY = 4
-    //
-    //     >>>> here
-        switch(status){
-            case CrashFinderEC_IMPOSSIBLE:
-                break;
-
-            default:
-                char msg[100];
-                memset(msg, 0, 100);
-                sprintf(msg, "unknown CrashFinder exit code: %d", status);
-                WARNF("unknown CrashFinder exit code: ");
-        }
+        keeping = decide_via_crash_finder(afl);
 
         // NOTE: shank: end
 
