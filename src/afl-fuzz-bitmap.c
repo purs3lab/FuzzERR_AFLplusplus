@@ -26,7 +26,9 @@
 #include "afl-fuzz.h"
 #include "debug.h"
 #include <limits.h>
+#include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 #if !defined NAME_MAX
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
@@ -451,7 +453,9 @@ void write_crash_readme(afl_state_t *afl) {
 }
 
 /// @shank
-const char *crash_finder_path = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
+/// TODO: shank: later: this should be read from some environment variable
+const char *CRASH_FINDER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
+const char *CRASH_MINIMIZER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_minimizer.py";
 
 /// @shank
 enum CrashFinderEC{
@@ -462,12 +466,89 @@ enum CrashFinderEC{
     CrashFinderEC_CRASH_IN_LIBRARY
 };
 
+
+/// @shank
+/// crash_minimizer --prog_path=<prog_path>> --mask_path=<error_mask> --args=<input1>,<input2>..
+char *_create_crash_minimizer_cmd(afl_state_t *afl, u8 *custom_error_mask_file){
+    printf(">>>> afl->argv: %s\n", *afl->argv);
+    int argc = 0;
+    while(afl->argv[argc]){
+        argc++;
+    }
+    printf(">>>> argc: %d\n", argc);
+    for(int i=0; i < argc; i++){
+        printf(">>>> afl->argv[%d]: %s\n", i, afl->argv[i]);
+
+    }
+    printf(">>>> afl->in_dir: %s\n", afl->in_dir);
+    printf(">>>> afl->infoexec: %s\n", afl->infoexec);
+
+    if (custom_error_mask_file){
+        printf(">>>> error mask file: %s\n", custom_error_mask_file);
+    } else {
+        printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
+    }
+
+    char *prog_bin = afl->argv[0];
+    char *error_mask_file = NULL;
+    if(custom_error_mask_file){
+        error_mask_file = custom_error_mask_file;
+    } else {
+        error_mask_file = afl->fsrv.out_file;
+    }
+    assert(error_mask_file != NULL);
+
+    // calculate the length of the malloced chunk for this cmd
+    size_t cmd_len = 0;
+    cmd_len += strlen(CRASH_MINIMIZER_PATH) + 1;
+    cmd_len += strlen("--prog_path=");
+    cmd_len += strlen(prog_bin) + 1;
+    cmd_len += strlen("--mask_path=");
+    cmd_len += strlen(error_mask_file) + 1;
+    cmd_len += strlen("--args=");
+    for (int i = 1; i < argc; i++){
+        cmd_len += strlen(afl->argv[i]) + 1;
+    }
+    printf(">>>> create_crash_minimizer_cmd(): cmd_len: %d\n", cmd_len);
+
+    // construct the cmd string and return
+    char *cmd = (char *)calloc(cmd_len, sizeof(char));
+    if(cmd == NULL){
+        FATAL("unable to allocate buffer for crash_minimizer command");
+    }
+    cmd = strcat(cmd, CRASH_MINIMIZER_PATH);;
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--prog_path=");
+    cmd = strcat(cmd, prog_bin);
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--mask_path=");
+    cmd = strcat(cmd, error_mask_file);
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--args=");
+    for (int i = 1; i < argc; i++){
+        cmd = strcat(cmd, afl->argv[i]);
+        if(i != argc-1){
+            cmd = strcat(cmd, ",");
+        }
+    }
+
+    printf(">>>> create_crash_minimizer_cmd(): final cmd length: %d\n", strlen(cmd));
+    printf(">>>> create_crash_minimizer_cmd(): cmd: %s\n", cmd);
+
+    return cmd;
+}
+
+
 /// create the command line for the crash_finder.py
 /// using the infomation available in `afl`
 ///
+/// crash_finder.py --prog_path=<bin> --mask_path=<error_mask> --args=<input1>,<input2>..
+///
+/// FUZZERR_SRC_PATH should have already been set inside environment variable
+///
 /// NOTE: the (char *) returned by this function should be freed by the caller
 /// @shank
-char *create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace){
+char *_create_crash_finder_cmd(afl_state_t *afl, u8* custom_error_mask_file){
     // required:
     // [x] binary : afl->argv[0]
     // [x] args if any : afl->argv[1]...
@@ -484,20 +565,29 @@ char *create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace){
     }
     printf(">>>> afl->in_dir: %s\n", afl->in_dir);
     printf(">>>> afl->infoexec: %s\n", afl->infoexec);
-    printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
 
-    // crash_finder.py --prog_path=<bin> --mask_path=<error_mask> --args=<input1>,<input2>..
-    // FUZZERR_SRC_PATH should have already been set inside environment variable
+    if (custom_error_mask_file){
+        printf(">>>> error mask file: %s\n", custom_error_mask_file);
+    } else {
+        printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
+    }
+
     char *prog_bin = afl->argv[0];
-    char *error_mask = afl->fsrv.out_file;
+    char *error_mask_file = NULL;
+    if(custom_error_mask_file){
+        error_mask_file = custom_error_mask_file;
+    } else {
+        error_mask_file = afl->fsrv.out_file;
+    }
+    assert(error_mask_file != NULL);
 
     // calculate the length of the malloced chunk for this cmd
     size_t cmd_len = 0;
-    cmd_len += strlen(crash_finder_path) + 1;
+    cmd_len += strlen(CRASH_FINDER_PATH) + 1;
     cmd_len += strlen("--prog_path=");
     cmd_len += strlen(prog_bin) + 1;
     cmd_len += strlen("--mask_path=");
-    cmd_len += strlen(afl->fsrv.out_file) + 1;
+    cmd_len += strlen(error_mask_file) + 1;
     cmd_len += strlen("--args=");
     for (int i = 1; i < argc; i++){
         cmd_len += strlen(afl->argv[i]) + 1;
@@ -509,13 +599,13 @@ char *create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace){
     if(cmd == NULL){
         FATAL("unable to allocate buffer for crash_finder command");
     }
-    cmd = strcat(cmd, crash_finder_path);;
+    cmd = strcat(cmd, CRASH_FINDER_PATH);;
     cmd = strcat(cmd, " ");
     cmd = strcat(cmd, "--prog_path=");
     cmd = strcat(cmd, prog_bin);
     cmd = strcat(cmd, " ");
     cmd = strcat(cmd, "--mask_path=");
-    cmd = strcat(cmd, error_mask);
+    cmd = strcat(cmd, error_mask_file);
     cmd = strcat(cmd, " ");
     cmd = strcat(cmd, "--args=");
     for (int i = 1; i < argc; i++){
@@ -532,18 +622,47 @@ char *create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace){
 }
 
 
-// @shank
-/// uses crash_finder to take the call on whether the error was in library or in the program
-/// returns 1 if the crash is to be saved and 0 if its to be discarded
-u8 decide_via_crash_finder(afl_state_t *afl){
-    // crash_finder without backtrace
-    char *crash_finder_cmd = create_crash_finder_cmd(afl, false);
+/// @shank
+/// custom_error_mask -> minimized error mask to run the crash_finder with
+u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, char *custom_error_mask){
+    char *crash_finder_cmd = _create_crash_finder_cmd(afl, custom_error_mask);
+    if(enable_backtrace){
+        setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1);
+    }
     int status = system(crash_finder_cmd);
+    if(enable_backtrace){
+        unsetenv("FUZZERR_ENABLE_BACKTRACE");
+    }
     if(crash_finder_cmd){
         free(crash_finder_cmd);
     }
     status /= 256;
     printf(">>>> crash_finder exit code status: %d\n", status);
+    return status;
+}
+
+
+/// @shank
+/// return a path to the minimized error mask file
+/// this would be: /tmp/fuzzerr_minimized_error_mask
+char *minimize_error_mask(afl_state_t *afl){
+    // TODO: shank: implement
+    // - create the command line for crash minimizer
+    // - exectue it via system
+    // - if the crash_minimizer exits successfully, then /tmp/fuzzerr_minimized_error_mask
+    // would be the minimized mask
+    // - if the crash_minimizer doesnt exit successfully, return NULL
+
+    return NULL;
+}
+
+
+// @shank
+/// uses crash_finder to take the call on whether the error was in library or in the program
+/// returns 1 if the crash is to be saved and 0 if its to be discarded
+u8 decide_via_crash_finder(afl_state_t *afl){
+    // crash_finder without backtrace
+    u8 status = run_crash_finder(afl, false, NULL);
 
     //     take action, based on the exit code
     //
@@ -574,13 +693,51 @@ u8 decide_via_crash_finder(afl_state_t *afl){
 
         case CrashFinderEC_CRASH_IN_LIBRARY:
             SAYF("CrashFinder (exit code: %d) - crash in library", status);
-            // TODO: shank: implement
             // since the crash was in library, do the following:
             // - run with backtrace enabled and check the return code
             // - if crash is in program, handle it as the case above
-            // - if crash is again in library, invoke crash minimizer to minimize the error_mask
-            // and then run crash_finder with backtrace_enabled and with the minimized mask and
-            // take the final call based on the result
+            // - if crash is again in library,
+            //      - invoke crash minimizer to minimize the error_mask
+            //      - run crash_finder with backtrace_enabled using this minimized mask
+            //      - take the final call based on the result
+
+            // - run with backtrace enabled and check the return code
+            u8 status = run_crash_finder(afl, true, NULL);
+
+            // TODO: shank: later: refactor this to handle all cases
+            if(status == CrashFinderEC_CRASH_IN_PROGRAM){
+                // - if crash is in program, handle it as the case above
+                SAYF("CrashFinder (exit code: %d) - crash in program", status);
+                return 1;
+
+            } else if (status == CrashFinderEC_CRASH_IN_LIBRARY){
+                // - if crash is again in library,
+                //      - invoke crash minimizer to minimize the error_mask
+                //      - run crash_finder with backtrace_enabled using this minimized mask
+                //      - take the final call based on the result
+
+                //      - invoke crash minimizer to minimize the error_mask
+                char *minimized_error_mask = minimize_error_mask(afl);
+                if (!minimized_error_mask){
+                    FATAL("unable to get the minimized_error_mask... exiting\n");
+                }
+
+                //      - run crash_finder with backtrace_enabled using this minimized mask
+                status = run_crash_finder(afl, true, minimized_error_mask);
+                free(minimized_error_mask);
+
+                // TODO: shank: later: refactor this to handle all cases
+                if(status == CrashFinderEC_CRASH_IN_PROGRAM){
+                    // - if crash is in program, handle it as the case above
+                    SAYF("CrashFinder (exit code: %d) - crash in program", status);
+                    return 1;
+                } else if(status == CrashFinderEC_CRASH_IN_LIBRARY){
+                    // - if crash is in program, handle it as the case above
+                    SAYF("CrashFinder (exit code: %d) - crash in library", status);
+                    return 0;
+                }
+            }
+
             break;
 
         default:
@@ -588,7 +745,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             return 1;
     }
 
-    // TODO: shank: this should be (eventually) redundant
+    // TODO: shank: later: this should be (eventually) redundant
     return 1;
 }
 
