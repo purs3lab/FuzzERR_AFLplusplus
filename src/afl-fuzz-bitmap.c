@@ -620,7 +620,9 @@ char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_fil
 u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_error_mask){
     char *crash_finder_cmd = _create_crash_finder_cmd(afl, custom_error_mask);
     if(enable_backtrace){
-        setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1);
+        if(setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1) < 0){
+            PFATAL("unable to set FUZZERR_ENABLE_BACKTRACE environment variable");
+        }
     }
     int status = system(crash_finder_cmd);
     if(enable_backtrace){
@@ -642,13 +644,16 @@ const char *run_crash_minimizer(afl_state_t *afl){
     char *crash_minimizer_cmd = _create_crash_minimizer_cmd(afl);
 
     // - exectue it via system
-    setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1);
+    if(setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1) < 0){
+        PFATAL("unable to set FUZZERR_ENABLE_BACKTRACE environment variable");
+    }
     int status = system(crash_minimizer_cmd);
     unsetenv("FUZZERR_ENABLE_BACKTRACE");
     free(crash_minimizer_cmd);
 
     status /= 256;
     printf(">>>> crash_minimizer exit code status: %d\n", status);
+
     if(status == 0){
         // - if the crash_minimizer exits successfully, then /tmp/fuzzerr_minimized_error_mask
         // would be the minimized mask
