@@ -711,6 +711,10 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 return 1;
 
             } else if (status == CrashFinderEC_CRASH_IN_LIBRARY){
+                SAYF("CrashFinder (exit code: %d) - crash in library", status);
+                return 0;
+
+                // the code below is to be enabled after crash_minimizer has been implemented
                 // - if crash is again in library,
                 //      - invoke crash minimizer to minimize the error_mask
                 //      - run crash_finder with backtrace_enabled using this minimized mask
