@@ -539,7 +539,7 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
 ///
 /// NOTE: the (char *) returned by this function should be freed by the caller
 /// @shank
-char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_file){
+char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8* custom_error_mask_file){
     // required:
     // [x] binary : afl->argv[0]
     // [x] args if any : afl->argv[1]...
@@ -583,6 +583,9 @@ char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_fil
     for (int i = 1; i < argc; i++){
         cmd_len += strlen(afl->argv[i]) + 1;
     }
+    if(enable_backtrace){
+        cmd_len += strlen("--enable-backtrace") + 1;
+    }
     printf(">>>> create_crash_finder_cmd(): cmd_len: %d\n", cmd_len);
 
     // construct the cmd string and return
@@ -605,6 +608,9 @@ char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_fil
             cmd = strcat(cmd, ",");
         }
     }
+    if(enable_backtrace){
+        cmd = strcat(cmd, "--enable-backtrace");
+    }
 
     printf(">>>> create_crash_finder_cmd(): final cmd length: %d\n", strlen(cmd));
     printf(">>>> create_crash_finder_cmd(): cmd: %s\n", cmd);
@@ -618,16 +624,8 @@ char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_fil
 ///
 /// returns: u8: exit code of the crash_finder
 u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_error_mask){
-    char *crash_finder_cmd = _create_crash_finder_cmd(afl, custom_error_mask);
-    if(enable_backtrace){
-        if(setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1) < 0){
-            PFATAL("unable to set FUZZERR_ENABLE_BACKTRACE environment variable");
-        }
-    }
+    char *crash_finder_cmd = _create_crash_finder_cmd(afl, enable_backtrace, custom_error_mask);
     int status = system(crash_finder_cmd);
-    if(enable_backtrace){
-        unsetenv("FUZZERR_ENABLE_BACKTRACE");
-    }
     free(crash_finder_cmd);
     status /= 256;
     printf(">>>> crash_finder exit code status: %d\n", status);
@@ -642,13 +640,7 @@ u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_
 const char *run_crash_minimizer(afl_state_t *afl){
     // - create the command line for crash minimizer
     char *crash_minimizer_cmd = _create_crash_minimizer_cmd(afl);
-
-    // - exectue it via system
-    if(setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1) < 0){
-        PFATAL("unable to set FUZZERR_ENABLE_BACKTRACE environment variable");
-    }
     int status = system(crash_minimizer_cmd);
-    unsetenv("FUZZERR_ENABLE_BACKTRACE");
     free(crash_minimizer_cmd);
 
     status /= 256;
