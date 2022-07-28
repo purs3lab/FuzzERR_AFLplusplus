@@ -456,6 +456,7 @@ void write_crash_readme(afl_state_t *afl) {
 /// TODO: shank: later: this should be read from some environment variable
 const char *CRASH_FINDER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
 const char *CRASH_MINIMIZER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_minimizer.py";
+const char *MINIMIZED_ERROR_MASK_FILE = "/tmp/fuzzerr_minimized_error_mask";
 
 /// @shank
 enum CrashFinderEC{
@@ -469,7 +470,7 @@ enum CrashFinderEC{
 
 /// @shank
 /// crash_minimizer --prog_path=<prog_path>> --mask_path=<error_mask> --args=<input1>,<input2>..
-char *_create_crash_minimizer_cmd(afl_state_t *afl, u8 *custom_error_mask_file){
+char *_create_crash_minimizer_cmd(afl_state_t *afl){
     printf(">>>> afl->argv: %s\n", *afl->argv);
     int argc = 0;
     while(afl->argv[argc]){
@@ -482,20 +483,10 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl, u8 *custom_error_mask_file){
     }
     printf(">>>> afl->in_dir: %s\n", afl->in_dir);
     printf(">>>> afl->infoexec: %s\n", afl->infoexec);
-
-    if (custom_error_mask_file){
-        printf(">>>> error mask file: %s\n", custom_error_mask_file);
-    } else {
-        printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
-    }
+    printf(">>>> error mask file: %s\n", afl->fsrv.out_file);
 
     char *prog_bin = afl->argv[0];
-    char *error_mask_file = NULL;
-    if(custom_error_mask_file){
-        error_mask_file = custom_error_mask_file;
-    } else {
-        error_mask_file = afl->fsrv.out_file;
-    }
+    char *error_mask_file = afl->fsrv.out_file;
     assert(error_mask_file != NULL);
 
     // calculate the length of the malloced chunk for this cmd
@@ -548,7 +539,7 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl, u8 *custom_error_mask_file){
 ///
 /// NOTE: the (char *) returned by this function should be freed by the caller
 /// @shank
-char *_create_crash_finder_cmd(afl_state_t *afl, u8* custom_error_mask_file){
+char *_create_crash_finder_cmd(afl_state_t *afl, const u8* custom_error_mask_file){
     // required:
     // [x] binary : afl->argv[0]
     // [x] args if any : afl->argv[1]...
@@ -573,7 +564,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, u8* custom_error_mask_file){
     }
 
     char *prog_bin = afl->argv[0];
-    char *error_mask_file = NULL;
+    const char *error_mask_file = NULL;
     if(custom_error_mask_file){
         error_mask_file = custom_error_mask_file;
     } else {
@@ -624,7 +615,9 @@ char *_create_crash_finder_cmd(afl_state_t *afl, u8* custom_error_mask_file){
 
 /// @shank
 /// custom_error_mask -> minimized error mask to run the crash_finder with
-u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, char *custom_error_mask){
+///
+/// returns: u8: exit code of the crash_finder
+u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_error_mask){
     char *crash_finder_cmd = _create_crash_finder_cmd(afl, custom_error_mask);
     if(enable_backtrace){
         setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1);
@@ -633,9 +626,7 @@ u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, char *custom_error_
     if(enable_backtrace){
         unsetenv("FUZZERR_ENABLE_BACKTRACE");
     }
-    if(crash_finder_cmd){
-        free(crash_finder_cmd);
-    }
+    free(crash_finder_cmd);
     status /= 256;
     printf(">>>> crash_finder exit code status: %d\n", status);
     return status;
@@ -643,17 +634,29 @@ u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, char *custom_error_
 
 
 /// @shank
-/// return a path to the minimized error mask file
+///
+/// returns: u8*: path to the minimized error mask file
 /// this would be: /tmp/fuzzerr_minimized_error_mask
-char *minimize_error_mask(afl_state_t *afl){
-    // TODO: shank: implement
+const char *run_crash_minimizer(afl_state_t *afl){
     // - create the command line for crash minimizer
-    // - exectue it via system
-    // - if the crash_minimizer exits successfully, then /tmp/fuzzerr_minimized_error_mask
-    // would be the minimized mask
-    // - if the crash_minimizer doesnt exit successfully, return NULL
+    char *crash_minimizer_cmd = _create_crash_minimizer_cmd(afl);
 
-    return NULL;
+    // - exectue it via system
+    setenv("FUZZERR_ENABLE_BACKTRACE", "1", 1);
+    int status = system(crash_minimizer_cmd);
+    unsetenv("FUZZERR_ENABLE_BACKTRACE");
+    free(crash_minimizer_cmd);
+
+    status /= 256;
+    printf(">>>> crash_minimizer exit code status: %d\n", status);
+    if(status == 0){
+        // - if the crash_minimizer exits successfully, then /tmp/fuzzerr_minimized_error_mask
+        // would be the minimized mask
+        return MINIMIZED_ERROR_MASK_FILE;
+    }else{
+        // - if the crash_minimizer doesnt exit successfully, return NULL
+        return NULL;
+    }
 }
 
 
@@ -717,20 +720,20 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 //      - take the final call based on the result
 
                 //      - invoke crash minimizer to minimize the error_mask
-                char *minimized_error_mask = minimize_error_mask(afl);
+                const char *minimized_error_mask = run_crash_minimizer(afl);
                 if (!minimized_error_mask){
                     FATAL("unable to get the minimized_error_mask... exiting\n");
                 }
 
                 //      - run crash_finder with backtrace_enabled using this minimized mask
                 status = run_crash_finder(afl, true, minimized_error_mask);
-                free(minimized_error_mask);
 
                 // TODO: shank: later: refactor this to handle all cases
                 if(status == CrashFinderEC_CRASH_IN_PROGRAM){
                     // - if crash is in program, handle it as the case above
                     SAYF("CrashFinder (exit code: %d) - crash in program", status);
                     return 1;
+
                 } else if(status == CrashFinderEC_CRASH_IN_LIBRARY){
                     // - if crash is in program, handle it as the case above
                     SAYF("CrashFinder (exit code: %d) - crash in library", status);
