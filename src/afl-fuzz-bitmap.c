@@ -551,6 +551,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     // [x] error mask : afl->fsrv.out_file
     if(afl->debug){
         printf(">>>> _create_crash_finder_cmd(): afl->argv: %s\n", *afl->argv);
+        printf(">>>> _create_crash_finder_cmd(): afl->fsrv->target_path: %s\n", afl->fsrv.target_path);
     }
 
     int argc = 0;
@@ -574,7 +575,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
         }
     }
 
-    char *prog_bin = afl->argv[0];
+    char *prog_bin = afl->fsrv.target_path;
     const char *error_mask_file = NULL;
     if(custom_error_mask_file){
         error_mask_file = custom_error_mask_file;
@@ -620,6 +621,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
         }
     }
     if(enable_backtrace){
+        cmd = strcat(cmd, " ");
         cmd = strcat(cmd, "--enable-backtrace");
     }
 
@@ -923,7 +925,19 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     /* Try to calibrate inline; this also calls update_bitmap_score() when
        successful. */
 
+    // @shank
+    if(afl->debug){
+        printf(">>>> save_if_interesting(): calling calibrate_case()\n");
+        fflush(stdout);
+    }
+
     res = calibrate_case(afl, afl->queue_top, mem, afl->queue_cycle - 1, 0);
+
+    // @shank
+    if(afl->debug){
+        printf(">>>> save_if_interesting(): done with calibrate_case()\n");
+        fflush(stdout);
+    }
 
     if (unlikely(res == FSRV_RUN_ERROR)) {
 
