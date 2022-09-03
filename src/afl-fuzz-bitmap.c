@@ -540,7 +540,7 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
 ///
 /// crash_finder.py --prog_path=<bin> --mask_path=<error_mask> --args=<input1>,<input2>..
 ///
-/// FUZZERR_SRC_PATH should have already been set inside environment variable
+/// FUZZERR_BIN_SRC_PATH should have already been set inside environment variable
 ///
 /// NOTE: the (char *) returned by this function should be freed by the caller
 /// @shank
