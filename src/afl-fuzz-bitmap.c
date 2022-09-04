@@ -601,7 +601,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     if(afl->debug){ printf(">>>> create_crash_finder_cmd(): cmd_len: %zu\n", cmd_len); }
 
     // construct the cmd string and return
-    char *cmd = (char *)calloc(cmd_len, sizeof(char));
+    char *cmd = (char *)calloc(cmd_len + 1, sizeof(char));
     if(cmd == NULL){
         FATAL("_create_crash_finder_cmd(): unable to allocate buffer for crash_finder command");
     }
