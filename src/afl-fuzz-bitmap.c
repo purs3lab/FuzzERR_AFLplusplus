@@ -27,6 +27,7 @@
 #include "debug.h"
 #include <limits.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
@@ -455,9 +456,9 @@ void write_crash_readme(afl_state_t *afl) {
 
 /// @shank
 /// TODO: shank: later: this should be read from some environment variable
-const char *CRASH_FINDER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
-const char *CRASH_MINIMIZER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_minimizer.py";
-const char *MINIMIZED_ERROR_MASK_FILE = "/tmp/fuzzerr_minimized_error_mask";
+static const char *CRASH_FINDER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_finder.py";
+static const char *CRASH_MINIMIZER_PATH = "/home/shank/code/research/FuzzERR/scripts/crash_minimizer.py";
+static char *MINIMIZED_ERROR_MASK_FILE = NULL;
 
 /// @shank
 enum CrashFinderEC{
@@ -661,7 +662,7 @@ const char *run_crash_minimizer(afl_state_t *afl){
     status /= 256;
     if(afl->debug){ printf(">>>> _create_crash_minimizer_cmd(): crash_minimizer exit code status: %d\n", status); }
     if(status == 0){
-        // - if the crash_minimizer exits successfully, then /tmp/fuzzerr_minimized_error_mask
+        // - if the crash_minimizer exits successfully, then $FUZZERR_AFL_MAP_minimized
         // would be the minimized mask
         return MINIMIZED_ERROR_MASK_FILE;
     }else{
@@ -672,12 +673,94 @@ const char *run_crash_minimizer(afl_state_t *afl){
 
 
 // @shank
+/// uses crash_finder with minimized error mask to decide whether the error was in library or in the
+/// program
+/// returns 1 if the crash is to be saved (crash was in program) and 0 if its to be discarded (crash
+/// was in library)
+u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *minimized_error_mask){
+    //      - run crash_finder with backtrace_enabled using this minimized mask
+    u8 status = run_crash_finder(afl, true, minimized_error_mask);
+
+    switch(status){
+        case CrashFinderEC_IMPOSSIBLE:
+            FATAL("CrashFinder with minimized mask (exit code: %d) - unexpected exit\n", status);
+
+        case CrashFinderEC_INVALID_ARGS:
+            FATAL("CrashFinder with minimized mask (exit code: %d) - invalid args\n", status);
+
+        case CrashFinderEC_SRC_PATH_NOT_PROVIDED:
+            FATAL("CrashFinder with minimized mask (exit code: %d) - SRC_PATH not provided\n", status);
+
+        case CrashFinderEC_CRASH_IN_PROGRAM:
+            // - if crash is in program, handle it as the case above
+            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in program\n", status);
+            return 1;
+
+        case CrashFinderEC_CRASH_IN_LIBRARY:
+            // - if crash is in program, handle it as the case above
+            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in library\n", status);
+            return 0;
+
+        default:
+            WARNF("unknown CrashFinder exit code (with minimized mask): %d", status);
+            return 1;
+    }
+}
+
+// @shank
+/// uses crash_finder with backtrace enabled to decide whether the error was in library or in the
+/// program
+/// returns 1 if the crash is to be saved (crash was in program) and 0 if its to be discarded (crash
+/// was in library)
+u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
+    u8 status = run_crash_finder(afl, true, NULL);
+
+    switch (status) {
+        case CrashFinderEC_IMPOSSIBLE:
+            FATAL("CrashFinder with backtrace (exit code: %d) - unexpected exit\n", status);
+
+        case CrashFinderEC_INVALID_ARGS:
+            FATAL("CrashFinder with backtrace (exit code: %d) - invalid args\n", status);
+
+        case CrashFinderEC_SRC_PATH_NOT_PROVIDED:
+            FATAL("CrashFinder with backtrace (exit code: %d) - SRC_PATH not provided\n", status);
+
+        case CrashFinderEC_CRASH_IN_PROGRAM:
+            SAYF("CrashFinder with backtrace (exit code: %d) - crash in program\n", status);
+            return 1;
+
+        case CrashFinderEC_CRASH_IN_LIBRARY:
+            SAYF("CrashFinder with backtrace (exit code: %d) - crash in library\n", status);
+            return 0;
+
+        default:
+            WARNF("unknown CrashFinder exit code (with backtrace): %d", status);
+            return 1;
+    }
+}
+
+// @shank
 /// uses crash_finder to take the call on whether the error was in library or in the program
 /// returns 1 if the crash is to be saved and 0 if its to be discarded
 u8 decide_via_crash_finder(afl_state_t *afl){
     if(afl->debug){
         printf(">>>> decide_via_crash_finder(): run_crash_finder without backtrace\n");
         fflush(stdout);
+    }
+
+    // set MINIMIZED_ERROR_MASK_FILE path, if required
+    // this is only required to be set once, since this will remain the same
+    // for a particular run of afl-fuzz
+    if(!MINIMIZED_ERROR_MASK_FILE){
+        // ensure that we have the FUZZERR_AFL_MAP env var set
+        char *fuzzerr_afl_map = getenv("FUZZERR_AFL_MAP");
+        if(!fuzzerr_afl_map){
+            FATAL("[!] FUZZERR_AFL_MAP env var not set");
+        }
+        // allocate buffer for MINIMIZED_ERROR_MASK_FILE
+        MINIMIZED_ERROR_MASK_FILE = calloc(strlen(fuzzerr_afl_map) + strlen("_minimized") + 1, sizeof(char));
+        strcat(MINIMIZED_ERROR_MASK_FILE, fuzzerr_afl_map);
+        strcat(MINIMIZED_ERROR_MASK_FILE, "_minimized");
     }
 
     // crash_finder without backtrace
@@ -701,15 +784,12 @@ u8 decide_via_crash_finder(afl_state_t *afl){
     switch(status){
         case CrashFinderEC_IMPOSSIBLE:
             FATAL("CrashFinder (exit code: %d) - unexpected exit\n", status);
-            return 1;
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder (exit code: %d) - invalid args\n", status);
-            return 1;
 
         case CrashFinderEC_SRC_PATH_NOT_PROVIDED:
             FATAL("CrashFinder (exit code: %d) - SRC_PATH not provided\n", status);
-            return 1;
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
             SAYF("CrashFinder (exit code: %d) - crash in program\n", status);
@@ -725,29 +805,23 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             //      - run crash_finder with backtrace_enabled using this minimized mask
             //      - take the final call based on the result
 
-            // - run with backtrace enabled and check the return code
-
             if(afl->debug){
                 printf(">>>> decide_via_crash_finder(): running crash_finder again with backtrace, as crash was in library\n");
                 fflush(stdout);
             }
 
-            status = run_crash_finder(afl, true, NULL);
+            // - run with backtrace enabled and check the return code
+            // result will be 1 if crash was in program
+            // and 0 if crash was in library
+            u8 result = decide_via_crash_finder_with_backtrace(afl);
 
-            if(afl->debug){
-                printf(">>>> decide_via_crash_finder(): run_crash_finder status: %d\n", status);
-                fflush(stdout);
-            }
-
-            // TODO: shank: later: refactor this to handle all cases
-            if(status == CrashFinderEC_CRASH_IN_PROGRAM){
-                // - if crash is in program, handle it as the case above
-                SAYF("CrashFinder (exit code: %d) - crash in program\n", status);
+            if (result == 1){
+                // crash in program, keep it
                 return 1;
 
-            } else if (status == CrashFinderEC_CRASH_IN_LIBRARY){
-                // SAYF("CrashFinder (exit code: %d) - crash in library", status);
-                // return 0;
+            }else {
+                // crash in library
+                // use crash_minimizer and further steps...
 
                 if(afl->debug){
                     printf(">>>> decide_via_crash_finder(): running crash_minimizer\n");
@@ -771,36 +845,14 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                     fflush(stdout);
                 }
 
-                //      - run crash_finder with backtrace_enabled using this minimized mask
-                status = run_crash_finder(afl, true, minimized_error_mask);
-
-                if(afl->debug){
-                    printf(">>>> decide_via_crash_finder(): run_crash_finder status: %d\n", status);
-                    fflush(stdout);
-                }
-
-                // TODO: shank: later: refactor this to handle all cases
-                if(status == CrashFinderEC_CRASH_IN_PROGRAM){
-                    // - if crash is in program, handle it as the case above
-                    SAYF("CrashFinder (exit code: %d) - crash in program\n", status);
-                    return 1;
-
-                } else if(status == CrashFinderEC_CRASH_IN_LIBRARY){
-                    // - if crash is in program, handle it as the case above
-                    SAYF("CrashFinder (exit code: %d) - crash in library\n", status);
-                    return 0;
-                }
+                result = decide_via_crash_finder_with_minimized_mask(afl, minimized_error_mask);
+                return result;
             }
-
-            break;
 
         default:
             WARNF("unknown CrashFinder exit code: %d", status);
             return 1;
     }
-
-    // TODO: shank: later: this should be (eventually) redundant
-    return 1;
 }
 
 
