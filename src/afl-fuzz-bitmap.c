@@ -473,20 +473,20 @@ enum CrashFinderEC{
 /// @shank
 /// crash_minimizer --prog_path=<prog_path>> --mask_path=<error_mask> --args=<input1>,<input2>..
 char *_create_crash_minimizer_cmd(afl_state_t *afl){
-    if(afl->debug){ printf(">>>> _create_crash_minimizer_cmd(): afl->argv: %s\n", *afl->argv); }
+    if(afl->debug){ printf(">>>> %s(): afl->argv: %s\n", __func__, *afl->argv); }
     int argc = 0;
     while(afl->argv[argc]){
         argc++;
     }
     if(afl->debug){
-        printf(">>>> _create_crash_minimizer_cmd(): argc: %d\n", argc);
+        printf(">>>> %s(): argc: %d\n", __func__, argc);
         for(int i=0; i < argc; i++){
-            printf(">>>> _create_crash_minimizer_cmd(): afl->argv[%d]: %s\n", i, afl->argv[i]);
+            printf(">>>> %s(): afl->argv[%d]: %s\n", __func__, i, afl->argv[i]);
 
         }
-        printf(">>>> _create_crash_minimizer_cmd(): afl->in_dir: %s\n", afl->in_dir);
-        printf(">>>> _create_crash_minimizer_cmd(): afl->infoexec: %s\n", afl->infoexec);
-        printf(">>>> _create_crash_minimizer_cmd(): error mask file: %s\n", afl->fsrv.out_file);
+        printf(">>>> %s(): afl->in_dir: %s\n", __func__, afl->in_dir);
+        printf(">>>> %s(): afl->infoexec: %s\n", __func__, afl->infoexec);
+        printf(">>>> %s(): error mask file: %s\n", __func__, afl->fsrv.out_file);
     }
 
     char *prog_bin = afl->argv[0];
@@ -504,12 +504,12 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
     for (int i = 1; i < argc; i++){
         cmd_len += strlen(afl->argv[i]) + 1;
     }
-    if(afl->debug){ printf(">>>> create_crash_minimizer_cmd(): cmd_len: %zu\n", cmd_len);}
+    if(afl->debug){ printf(">>>> %s(): cmd_len: %zu\n", __func__, cmd_len);}
 
     // construct the cmd string and return
     char *cmd = (char *)calloc(cmd_len, sizeof(char));
     if(cmd == NULL){
-        FATAL("_create_crash_minimizer_cmd(): unable to allocate buffer for crash_minimizer command");
+        FATAL("%s(): unable to allocate buffer for crash_minimizer command", __func__);
     }
     cmd = strcat(cmd, CRASH_MINIMIZER_PATH);;
     cmd = strcat(cmd, " ");
@@ -528,8 +528,8 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
     }
 
     if(afl->debug){
-        printf(">>>> create_crash_minimizer_cmd(): final cmd length: %zu\n", strlen(cmd));
-        printf(">>>> create_crash_minimizer_cmd(): cmd: %s\n", cmd);
+        printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
+        printf(">>>> %s(): cmd: %s\n", __func__, cmd);
     }
 
     return cmd;
@@ -551,8 +551,8 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     // [x] args if any : afl->argv[1]...
     // [x] error mask : afl->fsrv.out_file
     if(afl->debug){
-        printf(">>>> _create_crash_finder_cmd(): afl->argv: %s\n", *afl->argv);
-        printf(">>>> _create_crash_finder_cmd(): afl->fsrv->target_path: %s\n", afl->fsrv.target_path);
+        printf(">>>> %s(): afl->argv: %s\n", __func__, *afl->argv);
+        printf(">>>> %s(): afl->fsrv->target_path: %s\n", __func__, afl->fsrv.target_path);
     }
 
     int argc = 0;
@@ -561,18 +561,18 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     }
 
     if(afl->debug){
-        printf(">>>> _create_crash_finder_cmd(): argc: %d\n", argc);
+        printf(">>>> %s(): argc: %d\n", __func__, argc);
         for(int i=0; i < argc; i++){
-            printf(">>>> _create_crash_finder_cmd(): afl->argv[%d]: %s\n", i, afl->argv[i]);
+            printf(">>>> %s(): afl->argv[%d]: %s\n", __func__, i, afl->argv[i]);
 
         }
-        printf(">>>> _create_crash_finder_cmd(): afl->in_dir: %s\n", afl->in_dir);
+        printf(">>>> %s(): afl->in_dir: %s\n", __func__, afl->in_dir);
         printf(">>>> _create_crash_finder_cmd(): afl->infoexec: %s\n", afl->infoexec);
 
         if (custom_error_mask_file){
-            printf(">>>> _create_crash_finder_cmd(): error mask file: %s\n", custom_error_mask_file);
+            printf(">>>> %s(): error mask file: %s\n", __func__, custom_error_mask_file);
         } else {
-            printf(">>>> _create_crash_finder_cmd(): error mask file: %s\n", afl->fsrv.out_file);
+            printf(">>>> %s(): error mask file: %s\n", __func__, afl->fsrv.out_file);
         }
     }
 
@@ -599,7 +599,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     if(enable_backtrace){
         cmd_len += strlen("--enable-backtrace") + 1;
     }
-    if(afl->debug){ printf(">>>> create_crash_finder_cmd(): cmd_len: %zu\n", cmd_len); }
+    if(afl->debug){ printf(">>>> %s(): cmd_len: %zu\n", __func__, cmd_len); }
 
     // construct the cmd string and return
     char *cmd = (char *)calloc(cmd_len + 1, sizeof(char));
@@ -627,8 +627,8 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     }
 
     if(afl->debug){
-        printf(">>>> create_crash_finder_cmd(): final cmd length: %zu\n", strlen(cmd));
-        printf(">>>> create_crash_finder_cmd(): cmd: %s\n", cmd);
+        printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
+        printf(">>>> %s(): cmd: %s\n", __func__, cmd);
     }
 
     return cmd;
@@ -644,7 +644,7 @@ u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_
     int status = system(crash_finder_cmd);
     free(crash_finder_cmd);
     status /= 256;
-    if(afl->debug){ printf(">>>> run_crash_finder(): crash_finder exit code status: %d\n", status); }
+    if(afl->debug){ printf(">>>> %s(): crash_finder exit code status: %d\n", __func__, status); }
     return status;
 }
 
@@ -660,7 +660,7 @@ const char *run_crash_minimizer(afl_state_t *afl){
     free(crash_minimizer_cmd);
 
     status /= 256;
-    if(afl->debug){ printf(">>>> _create_crash_minimizer_cmd(): crash_minimizer exit code status: %d\n", status); }
+    if(afl->debug) { printf(">>>> %s(): crash_minimizer exit code status: %d\n", __func__, status); }
     if(status == 0){
         // - if the crash_minimizer exits successfully, then $FUZZERR_AFL_MAP_minimized
         // would be the minimized mask
@@ -683,7 +683,8 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
 
     switch(status){
         case CrashFinderEC_IMPOSSIBLE:
-            FATAL("CrashFinder with minimized mask (exit code: %d) - unexpected exit\n", status);
+            WARNF("CrashFinder with minimized mask (exit code: %d) - unexpected exit [keeping the mask]\n", status);
+            return 1;
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder with minimized mask (exit code: %d) - invalid args\n", status);
@@ -693,16 +694,16 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
             // - if crash is in program, handle it as the case above
-            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in program\n", status);
+            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in program [keeping the mask]\n", status);
             return 1;
 
         case CrashFinderEC_CRASH_IN_LIBRARY:
             // - if crash is in program, handle it as the case above
-            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in library\n", status);
+            SAYF("CrashFinder with minimized mask (exit code: %d) - crash in library [discarding the mask]\n", status);
             return 0;
 
         default:
-            WARNF("unknown CrashFinder exit code (with minimized mask): %d", status);
+            WARNF("unknown CrashFinder exit code (with minimized mask): %d [keeping the mask]", status);
             return 1;
     }
 }
@@ -717,7 +718,8 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
 
     switch (status) {
         case CrashFinderEC_IMPOSSIBLE:
-            FATAL("CrashFinder with backtrace (exit code: %d) - unexpected exit\n", status);
+            SAYF("CrashFinder with backtrace (exit code: %d) - unexpected exit [keeping the mask]\n", status);
+            return 1;
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder with backtrace (exit code: %d) - invalid args\n", status);
@@ -726,11 +728,11 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
             FATAL("CrashFinder with backtrace (exit code: %d) - SRC_PATH not provided\n", status);
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
-            SAYF("CrashFinder with backtrace (exit code: %d) - crash in program\n", status);
+            SAYF("CrashFinder with backtrace (exit code: %d) - crash in program [keeping the mask]\n", status);
             return 1;
 
         case CrashFinderEC_CRASH_IN_LIBRARY:
-            SAYF("CrashFinder with backtrace (exit code: %d) - crash in library\n", status);
+            SAYF("CrashFinder with backtrace (exit code: %d) - crash in library [discarding the mask]\n", status);
             return 0;
 
         default:
@@ -744,7 +746,7 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
 /// returns 1 if the crash is to be saved and 0 if its to be discarded
 u8 decide_via_crash_finder(afl_state_t *afl){
     if(afl->debug){
-        printf(">>>> decide_via_crash_finder(): run_crash_finder without backtrace\n");
+        printf(">>>> %s(): run_crash_finder without backtrace\n", __func__);
         fflush(stdout);
     }
 
@@ -767,7 +769,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
     u8 status = run_crash_finder(afl, false, NULL);
 
     if(afl->debug){
-        printf(">>>> decide_via_crash_finder(): run_crash_finder status: %d\n", status);
+        printf(">>>> %s(): run_crash_finder status: %d\n", __func__, status);
         fflush(stdout);
     }
 
@@ -776,14 +778,15 @@ u8 decide_via_crash_finder(afl_state_t *afl){
     // fuzzerr > crash_finder.py
     // Exit Codes (see class ExitCode below):
     //     IMPOSSIBLE = 0 -> log warning about unexpected exit code, keep input
-    //     INVALID_ARGS = 1 -> log warning about invalid args, keep input
-    //     SRC_PATH_NOT_PROVIDED = 2 -> log warning about invalid args, keep input
+    //     INVALID_ARGS = 1 -> abort!
+    //     SRC_PATH_NOT_PROVIDED = 2 -> abort!
     //     CRASH_IN_PROGRAM = 3  -> log info about crash in program, keep input
     //     CRASH_IN_LIBRARY = 4 -> phase II
     //     default -> log warning about unknown exit code, keep input
     switch(status){
         case CrashFinderEC_IMPOSSIBLE:
-            FATAL("CrashFinder (exit code: %d) - unexpected exit\n", status);
+            SAYF("CrashFinder (exit code: %d) - unexpected exit [keeping the mask]\n", status);
+            return 1;
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder (exit code: %d) - invalid args\n", status);
@@ -792,7 +795,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             FATAL("CrashFinder (exit code: %d) - SRC_PATH not provided\n", status);
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
-            SAYF("CrashFinder (exit code: %d) - crash in program\n", status);
+            SAYF("CrashFinder (exit code: %d) - crash in program [keeping the mask]\n", status);
             return 1;
 
         case CrashFinderEC_CRASH_IN_LIBRARY:
@@ -806,7 +809,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             //      - take the final call based on the result
 
             if(afl->debug){
-                printf(">>>> decide_via_crash_finder(): running crash_finder again with backtrace, as crash was in library\n");
+                printf(">>>> %s(): running crash_finder again with backtrace, as crash was in library\n", __func__);
                 fflush(stdout);
             }
 
@@ -824,11 +827,10 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 // use crash_minimizer and further steps...
 
                 if(afl->debug){
-                    printf(">>>> decide_via_crash_finder(): running crash_minimizer\n");
+                    printf(">>>> %s(): running crash_minimizer\n", __func__);
                     fflush(stdout);
                 }
 
-                // the code below is to be enabled after crash_minimizer has been implemented
                 // - if crash is again in library,
                 //      - invoke crash minimizer to minimize the error_mask
                 //      - run crash_finder with backtrace_enabled using this minimized mask
@@ -841,7 +843,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 }
 
                 if(afl->debug){
-                    printf(">>>> decide_via_crash_finder(): running crash_finder with minimzed error mask\n");
+                    printf(">>>> %s(): running crash_finder with minimzed error mask\n", __func__);
                     fflush(stdout);
                 }
 
@@ -863,7 +865,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
 u8 __attribute__((hot))
 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     if(afl->debug){
-        printf(">>>> save_if_interesting(): fault: %d\n", fault);
+        printf(">>>> %s(): fault: %d\n", __func__, fault);
     }
 
   if (unlikely(len == 0)) { return 0; }
@@ -889,7 +891,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   }
 
   if (likely(fault == afl->crash_mode)) {
-        if(afl->debug){ printf(">>>> save_if_interesting > fault == afl->crash_mode\n"); }
+        if(afl->debug){ printf(">>>> %s() > fault == afl->crash_mode\n", __func__); }
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
@@ -979,7 +981,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> save_if_interesting(): calling calibrate_case()\n");
+        printf(">>>> %s(): calling calibrate_case()\n", __func__);
         fflush(stdout);
     }
 
@@ -987,7 +989,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> save_if_interesting(): done with calibrate_case()\n");
+        printf(">>>> %s(): done with calibrate_case()\n", __func__);
         fflush(stdout);
     }
 
@@ -1140,7 +1142,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         keeping = decide_via_crash_finder(afl);
         if (keeping == 1){
             if(afl->debug){
-                printf(">>>> crash_finder decided to keep crash\n");
+                printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
                 fflush(stdout);
             }
 
@@ -1185,7 +1187,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> final afl->saved_crashes: %llu\n", afl->saved_crashes);
+        printf(">>>> %s(): final afl->saved_crashes: %llu\n", __func__, afl->saved_crashes);
     }
 
 #ifdef INTROSPECTION
@@ -1271,7 +1273,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 #endif
 
     if(afl->debug){
-        printf(">>>> returning keeping=%d\n", keeping);
+        printf(">>>> %s() > returning keeping=%d\n", __func__, keeping);
         fflush(stdout);
     }
   return keeping;
