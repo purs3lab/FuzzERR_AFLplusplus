@@ -1137,7 +1137,7 @@ static void __afl_start_forkserver(void) {
 
       /* Once woken up, create a clone of our process. */
 
-            printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
+            // printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
 
       child_pid = fork();
       if (child_pid < 0) {
@@ -1174,7 +1174,7 @@ static void __afl_start_forkserver(void) {
 
     /* In parent process: write PID to pipe, then wait for child. */
 
-        printf(">>>> __afl_start_forkserver(): in parent process, informing child PID via pipe to parent\n");
+        // printf(">>>> __afl_start_forkserver(): in parent process, informing child PID via pipe to parent\n");
 
     if (write(FORKSRV_FD + 1, &child_pid, 4) != 4) {
 
@@ -1183,7 +1183,7 @@ static void __afl_start_forkserver(void) {
 
     }
 
-        printf(">>>> __afl_start_forkserver(): in parent process, waiting for child...\n");
+        // printf(">>>> __afl_start_forkserver(): in parent process, waiting for child...\n");
 
     if (waitpid(child_pid, &status, is_persistent ? WUNTRACED : 0) < 0) {
 
