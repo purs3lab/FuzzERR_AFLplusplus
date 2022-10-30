@@ -1074,7 +1074,7 @@ static void __afl_start_forkserver(void) {
 
     /* Wait for parent by reading from the pipe. Abort if read fails. */
 
-        printf(">>>> __afl_start_forkserver(): waiting for parent by reading from pipe\n");
+        // printf(">>>> __afl_start_forkserver(): waiting for parent by reading from pipe\n");
 
     if (already_read_first) {
 
