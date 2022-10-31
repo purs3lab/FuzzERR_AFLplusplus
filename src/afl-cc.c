@@ -2188,19 +2188,19 @@ int main(int argc, char **argv, char **envp) {
 
   if (passthrough) {
 
-        printf(">>>> in passthrough...\n");
+        // printf(">>>> in passthrough...\n");
     argv[0] = cc_params[0];
     execvp(cc_params[0], (char **)argv);
 
   } else {
 
-        printf(">>>> not in passthrough...\n");
-        printf(">>>> cc_params[0]: %s\n", cc_params[0]);
-        int idx = 0;
-        while(cc_params[idx] != NULL){
-            printf(">>>> cc_params[%d]: %s\n", idx, cc_params[idx]);
-            idx++;
-        }
+        // printf(">>>> not in passthrough...\n");
+        // printf(">>>> cc_params[0]: %s\n", cc_params[0]);
+        // int idx = 0;
+        // while(cc_params[idx] != NULL){
+        //     printf(">>>> cc_params[%d]: %s\n", idx, cc_params[idx]);
+        //     idx++;
+        // }
     execvp(cc_params[0], (char **)cc_params);
 
   }
