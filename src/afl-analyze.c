@@ -114,7 +114,7 @@ static void kill_child() {
 
   if (fsrv.child_pid > 0) {
 
-    kill(fsrv.child_pid, fsrv.kill_signal);
+    kill(fsrv.child_pid, fsrv.child_kill_signal);
     fsrv.child_pid = -1;
 
   }
@@ -203,8 +203,7 @@ static void read_initial_file(void) {
 /* Execute target application. Returns exec checksum, or 0 if program
    times out. */
 
-static u32 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
-    printf(">>>> analyze_run_target()\n");
+static u64 analyze_run_target(u8 *mem, u32 len, u8 first_run) {
 
   afl_fsrv_write_to_testcase(&fsrv, mem, len);
   fsrv_run_result_t ret = afl_fsrv_run_target(&fsrv, exec_tmout, &stop_soon);
@@ -529,7 +528,7 @@ static void analyze() {
 
   for (i = 0; i < in_len; i++) {
 
-    u32 xor_ff, xor_01, sub_10, add_10;
+    u64 xor_ff, xor_01, sub_10, add_10;
     u8  xff_orig, x01_orig, s10_orig, a10_orig;
 
     /* Perform walking byte adjustments across the file. We perform four
@@ -627,7 +626,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(char **argv) {
 
-  u8 *  x;
+  u8   *x;
   char *afl_preload;
   char *frida_afl_preload = NULL;
 
@@ -863,11 +862,15 @@ static void usage(u8 *argv0) {
       "MSAN_OPTIONS: custom settings for MSAN\n"
       "              (must contain exitcode="STRINGIFY(MSAN_ERROR)" and symbolize=0)\n"
       "AFL_ANALYZE_HEX: print file offsets in hexadecimal instead of decimal\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
       "AFL_SKIP_BIN_CHECK: skip checking the location of and the target\n"
-
       , argv0, EXEC_TIMEOUT, MEM_LIMIT, doc_path);
 
   exit(1);
@@ -1116,8 +1119,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  fsrv.kill_signal =
-      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+  configure_afl_kill_signals(
+      &fsrv, NULL, NULL, (fsrv.qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   read_initial_file();
   (void)check_binary_signatures(fsrv.target_path);

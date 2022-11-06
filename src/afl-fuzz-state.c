@@ -23,6 +23,7 @@
 
  */
 
+#include <signal.h>
 #include "afl-fuzz.h"
 #include "envs.h"
 
@@ -265,6 +266,13 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
             afl->afl_env.afl_cmplog_only_new =
                 get_afl_env(afl_environment_variables[i]) ? 1 : 0;
 
+          } else if (!strncmp(env, "AFL_NO_STARTUP_CALIBRATION",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_no_startup_calibration =
+                get_afl_env(afl_environment_variables[i]) ? 1 : 0;
+
           } else if (!strncmp(env, "AFL_NO_UI", afl_environment_variable_len)) {
 
             afl->afl_env.afl_no_ui =
@@ -480,7 +488,14 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
                               afl_environment_variable_len)) {
 
-            afl->afl_env.afl_kill_signal =
+            afl->afl_env.afl_child_kill_signal =
+                (u8 *)get_afl_env(afl_environment_variables[i]);
+
+          } else if (!strncmp(env, "AFL_FORK_SERVER_KILL_SIGNAL",
+
+                              afl_environment_variable_len)) {
+
+            afl->afl_env.afl_fsrv_kill_signal =
                 (u8 *)get_afl_env(afl_environment_variables[i]);
 
           } else if (!strncmp(env, "AFL_TARGET_ENV",
@@ -517,16 +532,6 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
             afl->afl_env.afl_no_crash_readme =
                 atoi((u8 *)get_afl_env(afl_environment_variables[i]));
-
-            if (afl->afl_env.afl_pizza_mode == 0) {
-
-              afl->afl_env.afl_pizza_mode = 1;
-
-            } else {
-
-              afl->pizza_is_served = 1;
-
-            }
 
           } else if (!strncmp(env, "AFL_SYNC_TIME",
 
@@ -607,6 +612,8 @@ void read_afl_environment(afl_state_t *afl, char **envp) {
 
   }
 
+  if (afl->afl_env.afl_pizza_mode) { afl->pizza_is_served = 1; }
+
   if (issue_detected) { sleep(2); }
 
 }
@@ -655,8 +662,17 @@ void afl_states_stop(void) {
 
   LIST_FOREACH(&afl_states, afl_state_t, {
 
-    if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.kill_signal);
-    if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, el->fsrv.kill_signal);
+    /* NOTE: We need to make sure that the parent (the forkserver) reap the
+     * child (see below). */
+    if (el->fsrv.child_pid > 0)
+      kill(el->fsrv.child_pid, el->fsrv.child_kill_signal);
+    if (el->fsrv.fsrv_pid > 0) {
+
+      kill(el->fsrv.fsrv_pid, el->fsrv.fsrv_kill_signal);
+      /* Make sure the forkserver does not end up as zombie. */
+      waitpid(el->fsrv.fsrv_pid, NULL, 0);
+
+    }
 
   });
 

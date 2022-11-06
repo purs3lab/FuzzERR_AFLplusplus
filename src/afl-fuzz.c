@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "common.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -167,8 +168,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  See docs/README.MOpt.md\n"
       "  -c program    - enable CmpLog by specifying a binary compiled for "
       "it.\n"
-      "                  if using QEMU/FRIDA or if you the fuzzing target is "
-      "compiled"
+      "                  if using QEMU/FRIDA or the fuzzing target is "
+      "compiled\n"
       "                  for CmpLog then just use -c 0.\n"
       "  -l cmplog_opts - CmpLog configuration values (e.g. \"2AT\"):\n"
       "                  1=small files, 2=larger files (default), 3=all "
@@ -192,9 +193,9 @@ static void usage(u8 *argv0, int more_help) {
       "executions.\n\n"
 
       "Other stuff:\n"
-      "  -M/-S id      - distributed mode (see docs/parallel_fuzzing.md)\n"
-      "                  -M auto-sets -D, -Z (use -d to disable -D) and no "
-      "trimming\n"
+      "  -M/-S id      - distributed mode (-M sets -Z and disables trimming)\n"
+      "                  see docs/fuzzing_in_depth.md#c-using-multiple-cores\n"
+      "                  for effective recommendations for parallel fuzzing.\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
       "-M, can\n"
       "                  be specified up to %u times)\n"
@@ -248,19 +249,24 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_DISABLE_TRIM: disable the trimming of test cases\n"
       "AFL_DUMB_FORKSRV: use fork server without feedback from target\n"
       "AFL_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
-      "AFL_EXIT_ON_TIME: exit when no new coverage finds are made within the specified time period\n"
-      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60 minutes and a cycle without finds)\n"
+      "AFL_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"
+      "AFL_EXPAND_HAVOC_NOW: immediately enable expand havoc mode (default: after 60\n"
+      "                      minutes and a cycle without finds)\n"
       "AFL_FAST_CAL: limit the calibration stage to three cycles for speedup\n"
       "AFL_FORCE_UI: force showing the status screen (for virtual consoles)\n"
-      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
       "AFL_HANG_TMOUT: override timeout value (in milliseconds)\n"
       "AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: don't warn about core dump handlers\n"
       "AFL_IGNORE_UNKNOWN_ENVS: don't warn on unknown env vars\n"
-      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected during a run\n"
+      "AFL_IGNORE_PROBLEMS: do not abort fuzzing if an incorrect setup is detected\n"
       "AFL_IMPORT_FIRST: sync and import test cases from other fuzzer instances first\n"
       "AFL_INPUT_LEN_MIN/AFL_INPUT_LEN_MAX: like -g/-G set min/max fuzz length produced\n"
       "AFL_PIZZA_MODE: 1 - enforce pizza mode, 0 - disable for April 1st\n"
-      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_MAX_DET_EXTRAS: if more entries are in the dictionary list than this value\n"
@@ -273,6 +279,7 @@ static void usage(u8 *argv0, int more_help) {
       "AFL_NO_CPU_RED: avoid red color for showing very high cpu usage\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n"
       "AFL_NO_SNAPSHOT: do not use the snapshot feature (if the snapshot lkm is loaded)\n"
+      "AFL_NO_STARTUP_CALIBRATION: no initial seed calibration, start fuzzing at once\n"
       "AFL_NO_UI: switch status screen off\n"
 
       DYN_COLOR
@@ -383,9 +390,9 @@ static int stricmp(char const *a, char const *b) {
 static void fasan_check_afl_preload(char *afl_preload) {
 
   char   first_preload[PATH_MAX + 1] = {0};
-  char * separator = strchr(afl_preload, ':');
+  char  *separator = strchr(afl_preload, ':');
   size_t first_preload_len = PATH_MAX;
-  char * basename;
+  char  *basename;
   char   clang_runtime_prefix[] = "libclang_rt.asan";
 
   if (separator != NULL && (separator - afl_preload) < PATH_MAX) {
@@ -429,7 +436,7 @@ static void fasan_check_afl_preload(char *afl_preload) {
 
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary) {
 
-  void *                handle;
+  void                 *handle;
   nyx_plugin_handler_t *plugin = calloc(1, sizeof(nyx_plugin_handler_t));
 
   ACTF("Trying to load libnyx.so plugin...");
@@ -498,8 +505,8 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *extras_dir[4];
   u8  mem_limit_given = 0, exit_1 = 0, debug = 0,
      extras_dir_cnt = 0 /*, have_p = 0*/;
-  char * afl_preload;
-  char * frida_afl_preload = NULL;
+  char  *afl_preload;
+  char  *frida_afl_preload = NULL;
   char **use_argv;
 
   struct timeval  tv;
@@ -1359,8 +1366,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   #endif
 
-  afl->fsrv.kill_signal =
-      parse_afl_kill_signal_env(afl->afl_env.afl_kill_signal, SIGKILL);
+  configure_afl_kill_signals(&afl->fsrv, afl->afl_env.afl_child_kill_signal,
+                             afl->afl_env.afl_fsrv_kill_signal,
+                             (afl->fsrv.qemu_mode || afl->unicorn_mode
+  #ifdef __linux__
+                              || afl->fsrv.nyx_mode
+  #endif
+                              )
+                                 ? SIGKILL
+                                 : SIGTERM);
 
   setup_signal_handlers();
   check_asan_opts(afl);
@@ -1471,7 +1485,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (afl->shm.cmplog_mode &&
       (!strcmp("-", afl->cmplog_binary) || !strcmp("0", afl->cmplog_binary))) {
 
-    afl->cmplog_binary = argv[optind];
+    afl->cmplog_binary = strdup(argv[optind]);
 
   }
 
@@ -2133,6 +2147,20 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->fsrv.out_file && afl->fsrv.use_shmem_fuzz) {
+
+    afl->fsrv.out_file = NULL;
+    afl->fsrv.use_stdin = 0;
+    if (!afl->unicorn_mode && !afl->fsrv.use_stdin) {
+
+      WARNF(
+          "You specified -f or @@ on the command line but the target harness "
+          "specified fuzz cases via shmem, switching to shmem!");
+
+    }
+
+  }
+
   deunicode_extras(afl);
   dedup_extras(afl);
   if (afl->extras_cnt) { OKF("Loaded a total of %u extras.", afl->extras_cnt); }
@@ -2152,7 +2180,16 @@ int main(int argc, char **argv_orig, char **envp) {
   memset(afl->virgin_tmout, 255, map_size);
   memset(afl->virgin_crash, 255, map_size);
 
-  perform_dry_run(afl);
+  if (likely(!afl->afl_env.afl_no_startup_calibration)) {
+
+    perform_dry_run(afl);
+
+  } else {
+
+    ACTF("skipping initial seed calibration due option override");
+    usleep(1000);
+
+  }
 
   if (afl->q_testcase_max_cache_entries) {
 
@@ -2548,11 +2585,12 @@ int main(int argc, char **argv_orig, char **envp) {
 stop_fuzzing:
 
   afl->force_ui_update = 1;  // ensure the screen is reprinted
+  afl->stop_soon = 1;        // ensure everything is written
   show_stats(afl);           // print the screen one last time
   write_bitmap(afl);
   save_auto(afl);
 
-  if (afl->afl_env.afl_pizza_mode) {
+  if (afl->pizza_is_served) {
 
     SAYF(CURSOR_SHOW cLRD "\n\n+++ Baking aborted %s +++\n" cRST,
          afl->stop_soon == 2 ? "programmatically" : "by the chef");
