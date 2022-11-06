@@ -994,6 +994,18 @@ static void __afl_start_snapshots(void) {
 
 #endif
 
+// @shank
+// sigalrm handler
+static void fuzzerr_sigalrm_handler(int signum) {
+    // tmp:
+    // print self pid
+    printf(">>>> fuzzerr_sigalrm_handler: pid=%d\n", getpid());
+    fflush(stdout);
+
+    // we exit the process
+    _exit(EXIT_SUCCESS);
+}
+
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
@@ -1183,6 +1195,7 @@ static void __afl_start_forkserver(void) {
       /* Once woken up, create a clone of our process. */
 
             // printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
+            // fflush(stdout);
 
       child_pid = fork();
       if (child_pid < 0) {
@@ -1203,6 +1216,32 @@ static void __afl_start_forkserver(void) {
 
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
+
+       printf(">>>> __afl_start_forkserver(): in child process, about to resume execution\n");
+                fflush(stdout);
+
+        // @shank
+        // check if FUZZERR_TIMEOUT_IN_SEC environment variable is set
+        // if so, set the timeout to the value of the environment variable
+        char *fuzzerr_timeout_in_sec = getenv("FUZZERR_TIMEOUT_IN_SEC");
+        if (fuzzerr_timeout_in_sec != NULL) {
+            // install the signal handler for SIGALRM
+            struct sigaction sa;
+            sa.sa_handler = fuzzerr_sigalrm_handler;
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = 0;
+            if (sigaction(SIGALRM, &sa, NULL) == -1) {
+                perror("sigaction");
+                exit(1);
+            }
+
+           printf(">>>> __afl_start_forkserver(): in child process, installed the sigalrm handler\n");
+            fflush(stdout);
+
+            // set the alarm
+            alarm(atoi(fuzzerr_timeout_in_sec));
+        }
+
         return;
 
       }
