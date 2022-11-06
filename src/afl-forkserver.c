@@ -378,6 +378,19 @@ static void report_error_and_exit(int error) {
 
 }
 
+
+// @shank
+// sigalrm handler
+static void fuzzerr_sigalrm_handler(int signum) {
+    // tmp:
+    // print self pid
+    printf("fuzzerr_sigalrm_handler: pid=%d\n", getpid());
+    fflush(stdout);
+
+    // we exit the process
+    _exit(EXIT_SUCCESS);
+}
+
 /* Spins up fork server. The idea is explained here:
 
    https://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
