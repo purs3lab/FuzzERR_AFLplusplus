@@ -98,7 +98,7 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
-static sharedmem_t *     shm_fuzz;
+static sharedmem_t      *shm_fuzz;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -129,7 +129,7 @@ static void kill_child() {
   timed_out = 1;
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -138,7 +138,7 @@ static void kill_child() {
 
 static void classify_counts(afl_forkserver_t *fsrv) {
 
-  u8 *      mem = fsrv->trace_bits;
+  u8       *mem = fsrv->trace_bits;
   const u8 *map = binary_mode ? count_class_binary : count_class_human;
 
   u32 i = map_size;
@@ -166,7 +166,7 @@ static void classify_counts(afl_forkserver_t *fsrv) {
 }
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
-                                 sharedmem_t *     shm_fuzz) {
+                                 sharedmem_t      *shm_fuzz) {
 
   afl_shm_deinit(shm_fuzz);
   fsrv->support_shmem_fuzz = 0;
@@ -785,6 +785,8 @@ u32 execute_testcases(u8 *dir) {
       ck_free(in_data);
       ++done;
 
+      if (child_crashed && debug) { WARNF("crashed: %s", fn2); }
+
       if (collect_coverage)
         analyze_results(fsrv);
       else
@@ -820,8 +822,8 @@ static void usage(u8 *argv0) {
       "  -o file    - file to write the trace data to\n\n"
 
       "Execution control settings:\n"
-      "  -t msec    - timeout for each run (none)\n"
-      "  -m megs    - memory limit for child process (%u MB)\n"
+      "  -t msec    - timeout for each run (default: 1000ms)\n"
+      "  -m megs    - memory limit for child process (default: none)\n"
 #if defined(__linux__) && defined(__aarch64__)
       "  -A         - use binary-only instrumentation (ARM CoreSight mode)\n"
 #endif
@@ -863,15 +865,22 @@ static void usage(u8 *argv0) {
       "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during "
       "startup (in milliseconds)\n"
       "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, "
-      "etc. (default: SIGKILL)\n"
+      "etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on "
+      "termination\n"
+      "                             (default: SIGTERM). If unset and "
+      "AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the "
-      "size the target was compiled for\n"
+      "size the\n"
+      "              target was compiled for\n"
       "AFL_PRELOAD: LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
-      "AFL_PRINT_FILENAMES: If set, the filename currently processed will be "
-      "printed to stdout\n"
+      "AFL_PRINT_FILENAMES: Print the queue entry currently processed will to "
+      "stdout\n"
       "AFL_QUIET: do not print extra informational output\n"
       "AFL_NO_FORKSRV: run target via execve instead of using the forkserver\n",
-      argv0, MEM_LIMIT, doc_path);
+      argv0, doc_path);
 
   exit(1);
 
@@ -1238,7 +1247,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
     u32 save_be_quiet = be_quiet;
     be_quiet = !debug;
-    fsrv->map_size = 4194304;  // dummy temporary value
+    if (map_size > 4194304) {
+
+      fsrv->map_size = map_size;
+
+    } else {
+
+      fsrv->map_size = 4194304;  // dummy temporary value
+
+    }
+
     u32 new_map_size =
         afl_fsrv_get_mapsize(fsrv, use_argv, &stop_soon,
                              (get_afl_env("AFL_DEBUG_CHILD") ||
@@ -1247,8 +1265,9 @@ int main(int argc, char **argv_orig, char **envp) {
                                  : 0);
     be_quiet = save_be_quiet;
 
-    fsrv->kill_signal =
-        parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+    configure_afl_kill_signals(
+        fsrv, NULL, NULL,
+        (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
     if (new_map_size) {
 
@@ -1257,7 +1276,7 @@ int main(int argc, char **argv_orig, char **envp) {
           (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         if (!be_quiet)
-          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);

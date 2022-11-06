@@ -86,7 +86,7 @@ static volatile u8 stop_soon;          /* Ctrl-C pressed?                   */
 
 static afl_forkserver_t *fsrv;
 static sharedmem_t       shm;
-static sharedmem_t *     shm_fuzz;
+static sharedmem_t      *shm_fuzz;
 
 /*
  * forkserver section
@@ -113,7 +113,7 @@ static void kill_child() {
 
   if (fsrv->child_pid > 0) {
 
-    kill(fsrv->child_pid, fsrv->kill_signal);
+    kill(fsrv->child_pid, fsrv->child_kill_signal);
     fsrv->child_pid = -1;
 
   }
@@ -121,7 +121,7 @@ static void kill_child() {
 }
 
 static sharedmem_t *deinit_shmem(afl_forkserver_t *fsrv,
-                                 sharedmem_t *     shm_fuzz) {
+                                 sharedmem_t      *shm_fuzz) {
 
   afl_shm_deinit(shm_fuzz);
   fsrv->support_shmem_fuzz = 0;
@@ -642,7 +642,7 @@ static void handle_stop_sig(int sig) {
 
 static void set_up_environment(afl_forkserver_t *fsrv, char **argv) {
 
-  u8 *  x;
+  u8   *x;
   char *afl_preload;
   char *frida_afl_preload = NULL;
 
@@ -879,8 +879,12 @@ static void usage(u8 *argv0) {
 
       "Environment variables used:\n"
       "AFL_CRASH_EXITCODE: optional child exit code to be interpreted as crash\n"
-      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in milliseconds)\n"
-      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc. (default: SIGKILL)\n"
+      "AFL_FORKSRV_INIT_TMOUT: time spent waiting for forkserver during startup (in ms)\n"
+      "AFL_KILL_SIGNAL: Signal ID delivered to child processes on timeout, etc.\n"
+      "                 (default: SIGKILL)\n"
+      "AFL_FORK_SERVER_KILL_SIGNAL: Kill signal for the fork server on termination\n"
+      "                             (default: SIGTERM). If unset and AFL_KILL_SIGNAL is\n"
+      "                             set, that value will be used.\n"
       "AFL_MAP_SIZE: the shared memory size for that target. must be >= the size\n"
       "              the target was compiled for\n"
       "AFL_PRELOAD:  LD_PRELOAD / DYLD_INSERT_LIBRARIES settings for target\n"
@@ -1195,8 +1199,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  fsrv->kill_signal =
-      parse_afl_kill_signal_env(getenv("AFL_KILL_SIGNAL"), SIGKILL);
+  configure_afl_kill_signals(
+      fsrv, NULL, NULL, (fsrv->qemu_mode || unicorn_mode) ? SIGKILL : SIGTERM);
 
   if (getenv("AFL_CRASH_EXITCODE")) {
 
@@ -1252,7 +1256,7 @@ int main(int argc, char **argv_orig, char **envp) {
           (new_map_size > map_size && new_map_size - map_size > MAP_SIZE)) {
 
         if (!be_quiet)
-          ACTF("Aquired new map size for target: %u bytes\n", new_map_size);
+          ACTF("Acquired new map size for target: %u bytes\n", new_map_size);
 
         afl_shm_deinit(&shm);
         afl_fsrv_kill(fsrv);
