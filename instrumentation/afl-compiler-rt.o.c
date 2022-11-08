@@ -759,7 +759,10 @@ void write_error_with_location(char *text, char *filename, int linenumber) {
 
 #ifdef __linux__
 static void __afl_start_snapshots(void) {
-    printf(">>>> __afl_start_snapshots()\n");
+    if (__afl_debug) {
+        printf(">>>> __afl_start_snapshots()\n");
+        fflush(stdout);
+    }
 
   static u8 tmp[4] = {0, 0, 0, 0};
   u32       status = 0;
@@ -1009,7 +1012,10 @@ static void fuzzerr_sigalrm_handler(int signum) {
 /* Fork server logic. */
 
 static void __afl_start_forkserver(void) {
+  if (__afl_debug){
     printf(">>>> __afl_start_forkserver()\n");
+    fflush(stdout);
+  }
 
   if (__afl_already_initialized_forkserver) return;
   __afl_already_initialized_forkserver = 1;
