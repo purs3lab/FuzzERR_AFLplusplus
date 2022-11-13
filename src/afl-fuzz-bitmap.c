@@ -790,6 +790,10 @@ u8 decide_via_crash_finder(afl_state_t *afl){
         MINIMIZED_ERROR_MASK_FILE = calloc(strlen(fuzzerr_afl_map) + strlen("_minimized") + 1, sizeof(char));
         strcat(MINIMIZED_ERROR_MASK_FILE, fuzzerr_afl_map);
         strcat(MINIMIZED_ERROR_MASK_FILE, "_minimized");
+        if(afl->debug){
+            printf(">>>> %s(): MINIMIZED_ERROR_MASK_FILE path is: %s\n", __func__, MINIMIZED_ERROR_MASK_FILE);
+            fflush(stdout);
+        }
     }
 
     // crash_finder without backtrace
@@ -870,7 +874,8 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 //      - invoke crash minimizer to minimize the error_mask
                 const char *minimized_error_mask = run_crash_minimizer(afl);
                 if (!minimized_error_mask){
-                    FATAL("decide_via_crash_finder(): unable to get the minimized_error_mask... exiting\n");
+                    WARNF("decide_via_crash_finder(): unable to get the minimized_error_mask... skipping minimization (PLEASE INSPECT)\n");
+                    return 0;
                 }
 
                 if(afl->debug){

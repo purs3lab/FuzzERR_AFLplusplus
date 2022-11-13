@@ -45,6 +45,7 @@ fsrv_run_result_t __attribute__((hot))
 fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
     if(afl->debug){
         printf(">>>> fuzz_run_target()\n");
+        fflush(stdout);
     }
 
 #ifdef PROFILING
