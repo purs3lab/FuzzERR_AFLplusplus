@@ -488,7 +488,8 @@ enum CrashFinderEC{
     CrashFinderEC_INVALID_ARGS,
     CrashFinderEC_SRC_PATH_NOT_PROVIDED,
     CrashFinderEC_CRASH_IN_PROGRAM,
-    CrashFinderEC_CRASH_IN_LIBRARY
+    CrashFinderEC_CRASH_IN_LIBRARY,
+    CrashFinderEC_SRC_PATH_NOT_IN_BACKTRACE
 };
 
 
@@ -745,6 +746,9 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
             }
             return 0;
 
+        case CrashFinderEC_SRC_PATH_NOT_IN_BACKTRACE:
+            FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
+
         default:
             WARNF("unknown CrashFinder exit code (with minimized mask): %d [keeping the mask]", status);
             return 1;
@@ -783,6 +787,9 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
                 SAYF("CrashFinder with backtrace (exit code: %d) - crash in library [discarding the mask]\n", status);
             }
             return 0;
+
+        case CrashFinderEC_SRC_PATH_NOT_IN_BACKTRACE:
+            FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
 
         default:
             WARNF("unknown CrashFinder exit code (with backtrace): %d", status);
@@ -908,6 +915,9 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 result = decide_via_crash_finder_with_minimized_mask(afl, minimized_error_mask);
                 return result;
             }
+
+        case CrashFinderEC_SRC_PATH_NOT_IN_BACKTRACE:
+            FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
 
         default:
             WARNF("unknown CrashFinder exit code: %d", status);
