@@ -723,8 +723,8 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
 
     switch(status){
         case CrashFinderEC_IMPOSSIBLE:
-            WARNF("CrashFinder with minimized mask (exit code: %d) - unexpected exit [keeping the mask]\n", status);
-            return 1;
+            WARNF("CrashFinder with minimized mask (exit code: %d) - unexpected exit [discarding the mask]\n", status);
+            return 0;
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder with minimized mask (exit code: %d) - invalid args\n", status);
@@ -750,8 +750,8 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
             FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
 
         default:
-            WARNF("unknown CrashFinder exit code (with minimized mask): %d [keeping the mask]", status);
-            return 1;
+            WARNF("unknown CrashFinder exit code (with minimized mask): %d [discarding the mask]\n", status);
+            return 0;
     }
 }
 
@@ -765,10 +765,7 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
 
     switch (status) {
         case CrashFinderEC_IMPOSSIBLE:
-            if(afl->debug){
-                SAYF("CrashFinder with backtrace (exit code: %d) - unexpected exit [keeping the mask]\n", status);
-            }
-            return 1;
+            FATAL("CrashFinder with backtrace (exit code: %d) - unexpected exit (PLEASE INVESTIGATE)\n", status);
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder with backtrace (exit code: %d) - invalid args\n", status);
@@ -784,7 +781,7 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
 
         case CrashFinderEC_CRASH_IN_LIBRARY:
             if(afl->debug){
-                SAYF("CrashFinder with backtrace (exit code: %d) - crash in library [discarding the mask]\n", status);
+                SAYF("CrashFinder with backtrace (exit code: %d) - crash in library\n", status);
             }
             return 0;
 
@@ -792,8 +789,8 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
             FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
 
         default:
-            WARNF("unknown CrashFinder exit code (with backtrace): %d", status);
-            return 1;
+            WARNF("unknown CrashFinder exit code (with backtrace): %d\n", status);
+            return 0;
     }
 }
 
@@ -845,8 +842,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
     //     default -> log warning about unknown exit code, keep input
     switch(status){
         case CrashFinderEC_IMPOSSIBLE:
-            SAYF("CrashFinder (exit code: %d) - unexpected exit [keeping the mask]\n", status);
-            return 1;
+            FATAL("CrashFinder (exit code: %d) - unexpected exit (PLEASE INVESTIGATE)\n", status);
 
         case CrashFinderEC_INVALID_ARGS:
             FATAL("CrashFinder (exit code: %d) - invalid args\n", status);
@@ -903,7 +899,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
                 //      - invoke crash minimizer to minimize the error_mask
                 const char *minimized_error_mask = run_crash_minimizer(afl);
                 if (!minimized_error_mask){
-                    WARNF("decide_via_crash_finder(): unable to get the minimized_error_mask... skipping minimization (PLEASE INSPECT)\n");
+                    WARNF("decide_via_crash_finder(): unable to get the minimized_error_mask (PLEASE INSPECT) [discarding the mask]\n");
                     return 0;
                 }
 
@@ -920,8 +916,8 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             FATAL("CrashFinder (exit code: %d) - SRC_PATH_NOT_IN_BACKTRACE\n", status);
 
         default:
-            WARNF("unknown CrashFinder exit code: %d", status);
-            return 1;
+            WARNF("unknown CrashFinder exit code: %d [discarding the mask]\n", status);
+            return 0;
     }
 }
 
