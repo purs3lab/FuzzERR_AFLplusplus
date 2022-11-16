@@ -1208,23 +1208,32 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         // @shank
         // NOTE: shank: we can run CrashFinder here and if the crash is
         // occuring in library, just return 'keeping' (0)
-        keeping = decide_via_crash_finder(afl);
-        if (keeping == 1){
-            crash_finder_keeping_cnt++;
-            save_crash_finder_counts(afl);
+        //
+        // if CRASH_FINDER_DISABLE is set, then we don't run crashfinder
+        char *crash_finder_disable = getenv("CRASH_FINDER_DISABLE");
+        if(!(crash_finder_disable && crash_finder_disable[0] == '1')){
+            keeping = decide_via_crash_finder(afl);
+            if (keeping == 1){
+                crash_finder_keeping_cnt++;
+                save_crash_finder_counts(afl);
 
-            if(afl->debug){
-                printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
-                fflush(stdout);
+                if(afl->debug){
+                    printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
+                    fflush(stdout);
+                }
+
+            } else {
+                // crash_finder said that this is not interesting, so skip it
+                crash_finder_filtered_cnt++;
+                save_crash_finder_counts(afl);
+                return 0;
             }
-
+            // NOTE: shank: end
         } else {
-            // crash_finder said that this is not interesting, so skip it
-            crash_finder_filtered_cnt++;
-            save_crash_finder_counts(afl);
-            return 0;
+            if(afl->debug){
+                SAYF(">>>> %s(): crash_finder disabled\n", __func__);
+            }
         }
-        // NOTE: shank: end
 
 
       if (likely(!afl->non_instrumented_mode)) {
