@@ -35,6 +35,28 @@
   #define NAME_MAX _XOPEN_NAME_MAX
 #endif
 
+
+// @shank
+static u32 crash_finder_filtered_cnt = 0;
+static u32 crash_finder_keeping_cnt = 0;
+
+// @shank
+// This function saves the crash_finder_filterd_cnt to
+// 'afl->out_dir/crash_finder_counts'.
+// first line is crash_finder_filtered_cnt
+// second line is crash_finder_keeping_cnt
+void save_crash_finder_counts(afl_state_t *afl) {
+    FILE *f = NULL;
+    u8    fn[PATH_MAX];
+    snprintf(fn, PATH_MAX, "%s/crash_finder_counts", afl->out_dir);
+    f = create_ffile(fn);
+
+    fprintf(f, "crash_finder_filtered_cnt: %u\n", crash_finder_filtered_cnt);
+    fprintf(f, "crash_finder_keeping_cnt: %u\n", crash_finder_keeping_cnt);
+
+    fclose(f);
+}
+
 /* Write bitmap to file. The bitmap is useful mostly for the secret
    -B option, to focus a separate fuzzing session on a particular
    interesting input without rediscovering all the others. */
@@ -1188,6 +1210,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         // occuring in library, just return 'keeping' (0)
         keeping = decide_via_crash_finder(afl);
         if (keeping == 1){
+            crash_finder_keeping_cnt++;
+            save_crash_finder_counts(afl);
+
             if(afl->debug){
                 printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
                 fflush(stdout);
@@ -1195,6 +1220,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
         } else {
             // crash_finder said that this is not interesting, so skip it
+            crash_finder_filtered_cnt++;
+            save_crash_finder_counts(afl);
             return 0;
         }
         // NOTE: shank: end
