@@ -45,10 +45,10 @@ static u32 crash_finder_keeping_cnt = 0;
 // 'afl->out_dir/crash_finder_counts'.
 // first line is crash_finder_filtered_cnt
 // second line is crash_finder_keeping_cnt
-void save_crash_finder_counts(afl_state_t *afl) {
+void save_crash_finder_stats(afl_state_t *afl) {
     FILE *f = NULL;
     u8    fn[PATH_MAX];
-    snprintf(fn, PATH_MAX, "%s/crash_finder_counts", afl->out_dir);
+    snprintf(fn, PATH_MAX, "%s/crash_finder_stats", afl->out_dir);
     f = create_ffile(fn);
 
     fprintf(f, "crash_finder_filtered_cnt: %u\n", crash_finder_filtered_cnt);
@@ -1221,7 +1221,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
             keeping = decide_via_crash_finder(afl);
             if (keeping == 1){
                 crash_finder_keeping_cnt++;
-                save_crash_finder_counts(afl);
+                save_crash_finder_stats(afl);
 
                 if(afl->debug){
                     printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
@@ -1231,7 +1231,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
             } else {
                 // crash_finder said that this is not interesting, so skip it
                 crash_finder_filtered_cnt++;
-                save_crash_finder_counts(afl);
+                save_crash_finder_stats(afl);
                 return 0;
             }
             // NOTE: shank: end
