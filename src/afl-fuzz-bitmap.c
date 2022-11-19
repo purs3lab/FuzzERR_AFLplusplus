@@ -481,6 +481,7 @@ void write_crash_readme(afl_state_t *afl) {
 static const char *CRASH_FINDER_PATH = "$HOME/code/research/FuzzERR/scripts/fuzzerr/crash_finder.py";
 static const char *CRASH_MINIMIZER_PATH = "$HOME/code/research/FuzzERR/scripts/fuzzerr/crash_minimizer.py";
 static char *MINIMIZED_ERROR_MASK_FILE = NULL;
+static char *MINIMIZER_STATS_FILE = NULL;
 
 /// @shank
 enum CrashFinderEC{
@@ -501,20 +502,11 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
     while(afl->argv[argc]){
         argc++;
     }
-    // if(afl->debug){
-    //     printf(">>>> %s(): argc: %d\n", __func__, argc);
-    //     for(int i=0; i < argc; i++){
-    //         printf(">>>> %s(): afl->argv[%d]: %s\n", __func__, i, afl->argv[i]);
-
-    //     }
-    //     printf(">>>> %s(): afl->in_dir: %s\n", __func__, afl->in_dir);
-    //     printf(">>>> %s(): afl->infoexec: %s\n", __func__, afl->infoexec);
-    //     printf(">>>> %s(): error mask file: %s\n", __func__, afl->fsrv.out_file);
-    // }
 
     char *prog_bin = afl->argv[0];
     char *error_mask_file = afl->fsrv.out_file;
     assert(error_mask_file != NULL);
+    assert(MINIMIZER_STATS_FILE != NULL);
 
     // calculate the length of the malloced chunk for this cmd
     size_t cmd_len = 0;
@@ -527,6 +519,8 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
     for (int i = 1; i < argc; i++){
         cmd_len += strlen(afl->argv[i]) + 1;
     }
+    cmd_len += strlen("--stats_file=");
+    cmd_len += strlen(MINIMIZER_STATS_FILE) + 1;
     if(!afl->debug){
         // suppress stdout and stderr
         cmd_len += strlen(">/dev/null 2>/dev/null") + 1;
@@ -553,9 +547,12 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
             cmd = strcat(cmd, ",");
         }
     }
+    cmd = strcat(cmd, " ");
+    cmd = strcat(cmd, "--stats_file=");
+    cmd = strcat(cmd, MINIMIZER_STATS_FILE);
     if(!afl->debug){
         // suppress stdout and stderr
-        cmd = strcat(cmd, ">/dev/null 2>/dev/null");
+        cmd = strcat(cmd, " >/dev/null 2>/dev/null");
     }
 
     if(afl->debug){
@@ -591,22 +588,6 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     while(afl->argv[argc]){
         argc++;
     }
-
-    // if(afl->debug){
-    //     printf(">>>> %s(): argc: %d\n", __func__, argc);
-    //     for(int i=0; i < argc; i++){
-    //         printf(">>>> %s(): afl->argv[%d]: %s\n", __func__, i, afl->argv[i]);
-
-    //     }
-    //     printf(">>>> %s(): afl->in_dir: %s\n", __func__, afl->in_dir);
-    //     printf(">>>> _create_crash_finder_cmd(): afl->infoexec: %s\n", afl->infoexec);
-
-    //     if (custom_error_mask_file){
-    //         printf(">>>> %s(): error mask file: %s\n", __func__, custom_error_mask_file);
-    //     } else {
-    //         printf(">>>> %s(): error mask file: %s\n", __func__, afl->fsrv.out_file);
-    //     }
-    // }
 
     char *prog_bin = afl->fsrv.target_path;
     const char *error_mask_file = NULL;
@@ -663,7 +644,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     }
     if(!afl->debug){
         // suppress stdout and stderr
-        cmd = strcat(cmd, ">/dev/null 2>/dev/null");
+        cmd = strcat(cmd, " >/dev/null 2>/dev/null");
     }
 
     if(afl->debug){
@@ -821,6 +802,21 @@ u8 decide_via_crash_finder(afl_state_t *afl){
             fflush(stdout);
         }
     }
+
+    // set MINIMIZER_STATS_FILE path, if required
+    // this is only required to be set once, since this will remain the same
+    // for a particular run of afl-fuzz
+    if(!MINIMIZER_STATS_FILE){
+        // allocate buffer for MINIMIZER_STATS_FILE
+        uint32_t char_count = strlen(afl->out_dir) + 1 + strlen("crash_minimizer_stats") + 1;
+        MINIMIZER_STATS_FILE = calloc(char_count, sizeof(char));
+        snprintf(MINIMIZER_STATS_FILE, char_count, "%s/crash_minimizer_stats", afl->out_dir);
+        if(afl->debug){
+            printf(">>>> %s(): MINIMIZER_STATS_FILE path is: %s\n", __func__, MINIMIZER_STATS_FILE);
+            fflush(stdout);
+        }
+    }
+
 
     // crash_finder without backtrace
     u8 status = run_crash_finder(afl, false, NULL);
