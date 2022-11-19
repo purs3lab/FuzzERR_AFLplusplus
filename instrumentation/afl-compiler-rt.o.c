@@ -1200,8 +1200,9 @@ static void __afl_start_forkserver(void) {
 
       /* Once woken up, create a clone of our process. */
 
-            // printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
-            // fflush(stdout);
+        // @shank
+        // printf(">>>> __afl_start_forkserver(): about to clone our process...\n");
+        // fflush(stdout);
 
       child_pid = fork();
       if (child_pid < 0) {
@@ -1223,8 +1224,9 @@ static void __afl_start_forkserver(void) {
         close(FORKSRV_FD);
         close(FORKSRV_FD + 1);
 
-       printf(">>>> __afl_start_forkserver(): in child process, about to resume execution\n");
-                fflush(stdout);
+       // // @shank
+       // printf(">>>> __afl_start_forkserver(): in child process, about to resume execution\n");
+       //  fflush(stdout);
 
         // @shank
         // check if FUZZERR_TIMEOUT_IN_SEC environment variable is set
