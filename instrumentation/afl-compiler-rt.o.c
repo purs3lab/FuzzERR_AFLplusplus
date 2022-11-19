@@ -1002,7 +1002,7 @@ static void __afl_start_snapshots(void) {
 static void fuzzerr_sigalrm_handler(int signum) {
     // tmp:
     // print self pid
-    printf(">>>> fuzzerr_sigalrm_handler: pid=%d\n", getpid());
+    printf(">>>> killing self due to fuzzerr_sigalrm_handler set by afl-fuzz: pid=%d\n", getpid());
     fflush(stdout);
 
     // we exit the process
