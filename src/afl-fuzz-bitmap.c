@@ -1212,7 +1212,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         // occuring in library, just return 'keeping' (0)
         //
         // if CRASH_FINDER_DISABLE is set, then we don't run crashfinder
-        char *crash_finder_disable = getenv("CRASH_FINDER_DISABLE");
+        char *crash_finder_disable = getenv("FUZZERR_DISABLE_CRASH_FINDER");
         if(!(crash_finder_disable && crash_finder_disable[0] == '1')){
             keeping = decide_via_crash_finder(afl);
             if (keeping == 1){
