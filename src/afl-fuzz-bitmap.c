@@ -924,7 +924,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
 
 u8 __attribute__((hot))
 save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
-    if(afl->debug){
+    if(afl->debug && fault == 2){
         printf(">>>> %s(): fault: %d\n", __func__, fault);
     }
 
@@ -951,7 +951,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
   }
 
   if (likely(fault == afl->crash_mode)) {
-        if(afl->debug){ printf(">>>> %s() > fault == afl->crash_mode\n", __func__); }
+        // if(afl->debug){ printf(">>>> %s() > fault == afl->crash_mode\n", __func__); }
 
     /* Keep only if there are new bits in the map, add to queue for
        future fuzzing, etc. */
