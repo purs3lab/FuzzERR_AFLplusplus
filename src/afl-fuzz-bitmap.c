@@ -556,7 +556,7 @@ char *_create_crash_minimizer_cmd(afl_state_t *afl){
     }
 
     if(afl->debug){
-        printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
+        // printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
         printf(">>>> %s(): cmd: %s\n", __func__, cmd);
     }
 
@@ -648,7 +648,7 @@ char *_create_crash_finder_cmd(afl_state_t *afl, bool enable_backtrace, const u8
     }
 
     if(afl->debug){
-        printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
+        // printf(">>>> %s(): final cmd length: %zu\n", __func__, strlen(cmd));
         printf(">>>> %s(): cmd: %s\n", __func__, cmd);
     }
 
@@ -665,7 +665,7 @@ u8 run_crash_finder(afl_state_t *afl, bool enable_backtrace, const char *custom_
     int status = system(crash_finder_cmd);
     free(crash_finder_cmd);
     status /= 256;
-    if(afl->debug){ printf(">>>> %s(): crash_finder exit code status: %d\n", __func__, status); }
+    // if(afl->debug){ printf(">>>> %s(): crash_finder exit code status: %d\n", __func__, status); }
     return status;
 }
 
@@ -716,7 +716,7 @@ u8 decide_via_crash_finder_with_minimized_mask(afl_state_t *afl, const char *min
         case CrashFinderEC_CRASH_IN_PROGRAM:
             // - if crash is in program, handle it as the case above
             if(afl->debug){
-                SAYF("CrashFinder with minimized mask (exit code: %d) - crash in program [keeping the mask]\n", status);
+                SAYF("CrashFinder with minimized mask (exit code: %d) - crash in program [recommending to keep the mask]\n", status);
             }
             return 1;
 
@@ -756,7 +756,7 @@ u8 decide_via_crash_finder_with_backtrace(afl_state_t *afl){
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
             if(afl->debug){
-                SAYF("CrashFinder with backtrace (exit code: %d) - crash in program [keeping the mask]\n", status);
+                SAYF("CrashFinder with backtrace (exit code: %d) - crash in program [recommending to keep the mask]\n", status);
             }
             return 1;
 
@@ -821,10 +821,10 @@ u8 decide_via_crash_finder(afl_state_t *afl){
     // crash_finder without backtrace
     u8 status = run_crash_finder(afl, false, NULL);
 
-    if(afl->debug){
-        printf(">>>> %s(): run_crash_finder status: %d\n", __func__, status);
-        fflush(stdout);
-    }
+    // if(afl->debug){
+    //     printf(">>>> %s(): run_crash_finder status: %d\n", __func__, status);
+    //     fflush(stdout);
+    // }
 
     //     take action, based on the exit code
     //
@@ -848,7 +848,7 @@ u8 decide_via_crash_finder(afl_state_t *afl){
 
         case CrashFinderEC_CRASH_IN_PROGRAM:
             if(afl->debug){
-                SAYF("CrashFinder (exit code: %d) - crash in program [keeping the mask]\n", status);
+                SAYF("CrashFinder (exit code: %d) - crash in program [recommending to keep the mask]\n", status);
             }
             return 1;
 
@@ -1041,7 +1041,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> %s(): calling calibrate_case()\n", __func__);
+        printf(">>>> %s(): calling calibrate_case() >>>>\n", __func__);
         fflush(stdout);
     }
 
@@ -1049,7 +1049,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> %s(): done with calibrate_case()\n", __func__);
+        printf(">>>> %s(): done with calibrate_case() <<<<\n", __func__);
         fflush(stdout);
     }
 
@@ -1272,7 +1272,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> %s(): final afl->saved_crashes: %llu\n", __func__, afl->saved_crashes);
+        printf(">>>> %s(): afl saved the crash (afl->saved_crashes: %llu)\n", __func__, afl->saved_crashes);
+        fflush(stdout);
     }
 
 #ifdef INTROSPECTION
