@@ -1217,7 +1217,6 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
             keeping = decide_via_crash_finder(afl);
             if (keeping == 1){
                 crash_finder_keeping_cnt++;
-                save_crash_finder_stats(afl);
 
                 if(afl->debug){
                     printf(">>>> %s(): crash_finder decided to keep crash\n", __func__);
@@ -1227,10 +1226,9 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
             } else {
                 // crash_finder said that this is not interesting, so skip it
                 crash_finder_filtered_cnt++;
-                save_crash_finder_stats(afl);
-                return 0;
+                // return 0;
             }
-            // NOTE: shank: end
+            save_crash_finder_stats(afl);
         } else {
             if(afl->debug){
                 SAYF(">>>> %s(): crash_finder disabled\n", __func__);
@@ -1247,6 +1245,13 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         if (!has_new_bits(afl, afl->virgin_crash)) { return keeping; }
 
       }
+
+    // @shank
+    // if we reach here with keeping==0, then crash_finder decided to skip this crash
+    // so we should return now, and not save it
+    if(keeping == 0){
+        return keeping;
+    }
 
       if (unlikely(!afl->saved_crashes) &&
           (afl->afl_env.afl_no_crash_readme != 1)) {
@@ -1272,7 +1277,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     // @shank
     if(afl->debug){
-        printf(">>>> %s(): afl saved the crash (afl->saved_crashes: %llu)\n", __func__, afl->saved_crashes);
+        printf(">>>> %s(): afl saved the crash (afl->saved_crashes: %llu) to file: %s\n", __func__, afl->saved_crashes, fn);
         fflush(stdout);
     }
 
