@@ -1796,8 +1796,8 @@ int main(int argc, char **argv, char **envp) {
 
   }
 
-    printf(">>>> compiler_mode == LLVM? -> %d\n", compiler_mode == LLVM);
-    printf(">>>> instrument_mode: %d\n", instrument_mode);
+    // printf(">>>> compiler_mode == LLVM? -> %d\n", compiler_mode == LLVM);
+    // printf(">>>> instrument_mode: %d\n", instrument_mode);
 
   if (!compiler_mode) {
 
