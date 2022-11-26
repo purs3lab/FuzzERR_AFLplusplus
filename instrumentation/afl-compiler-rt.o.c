@@ -1005,8 +1005,10 @@ static void fuzzerr_sigalrm_handler(int signum) {
     printf(">>>> killing self due to fuzzerr_sigalrm_handler set by afl-fuzz: pid=%d\n", getpid());
     fflush(stdout);
 
+    kill(getpid(), SIGTERM);
+
     // we exit the process
-    _exit(EXIT_SUCCESS);
+    // _exit(EXIT_SUCCESS);
 }
 
 /* Fork server logic. */
