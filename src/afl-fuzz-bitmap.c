@@ -1249,8 +1249,10 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
     // @shank
     // if we reach here with keeping==0, then crash_finder decided to skip this crash
     // so we should return now, and not save it
-    if(keeping == 0){
-        return keeping;
+    if(!(crash_finder_disable && crash_finder_disable[0] == '1')){
+        if(keeping == 0){
+            return keeping;
+        }
     }
 
       if (unlikely(!afl->saved_crashes) &&
