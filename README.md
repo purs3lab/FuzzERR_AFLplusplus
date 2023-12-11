@@ -1,6 +1,6 @@
 # Fuzzerr_AFLPlusPlus
 
-This repository contains the modified version of AFL++ to be used with [FuzzERR](https://github.com/purs3lab/FuzzERR-final).
+This repository contains the modified version of AFL++ to be used with [FuzzERR](https://github.com/purs3lab/FuzzERR-final). This tool is a part of our research paper detailing FuzzERR, accepted at AsiaCCS-2024, titled "Fuzzing API Error Handling Behaviors using Coverage Guided Fault Injection".
 
 ## Building and Installing
 
